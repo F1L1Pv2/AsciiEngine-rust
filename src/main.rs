@@ -206,6 +206,34 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
 }
 
 #[derive(Copy, Clone, Debug)]
+struct Face {
+    vertices: [Vector4; 3],
+    color: Vector3,
+}
+
+impl Face {
+    fn new(vertices: [Vector4; 3], color: Vector3) -> Face {
+        Face { vertices, color }
+    }
+}
+
+fn drawFaces(faces: &Vec<Face>, transformation: Matrix44, fb: &mut FrameBuffer, Camera: &Camera) {
+    let finalMatrix = Camera.getPvMatrix().mul(transformation);
+    for face in faces {
+        let mut vertices: [Vector4; 3] = face.vertices;
+        for i in 0..3 {
+            vertices[i] = transformVertex(vertices[i], finalMatrix);
+        }
+        fill_triangle(
+            Vector2::new(vertices[0].x, vertices[0].y),
+            Vector2::new(vertices[1].x, vertices[1].y),
+            Vector2::new(vertices[2].x, vertices[2].y),
+            fb,
+        );
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 struct Vector2 {
     x: f32,
     y: f32,
@@ -534,6 +562,35 @@ impl Matrix44 {
         }
     }
 
+    fn dotVec3(&self, other: Vector3) -> Vector3 {
+        Vector3 {
+            x: self.m[0][0] * other.x + self.m[0][1] * other.y + self.m[0][2] * other.z,
+            y: self.m[1][0] * other.x + self.m[1][1] * other.y + self.m[1][2] * other.z,
+            z: self.m[2][0] * other.x + self.m[2][1] * other.y + self.m[2][2] * other.z,
+        }
+    }
+
+    fn dotVec4(&self, other: Vector4) -> Vector4 {
+        Vector4 {
+            x: self.m[0][0] * other.x
+                + self.m[0][1] * other.y
+                + self.m[0][2] * other.z
+                + self.m[0][3] * other.w,
+            y: self.m[1][0] * other.x
+                + self.m[1][1] * other.y
+                + self.m[1][2] * other.z
+                + self.m[1][3] * other.w,
+            z: self.m[2][0] * other.x
+                + self.m[2][1] * other.y
+                + self.m[2][2] * other.z
+                + self.m[2][3] * other.w,
+            w: self.m[3][0] * other.x
+                + self.m[3][1] * other.y
+                + self.m[3][2] * other.z
+                + self.m[3][3] * other.w,
+        }
+    }
+
     fn zero() -> Matrix44 {
         Matrix44 {
             m: [[0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4]],
@@ -711,25 +768,39 @@ impl Camera {
         self.rotation
     }
 
+    
     fn getForwardVector(&self) -> Vector3 {
-        //TODO: implement
-        Vector3::new(0., 0., 0.)
+        let forward = Vector3 {
+            x: self.rotation.y.sin() * self.rotation.x.cos(),
+            y: self.rotation.x.sin(),
+            z: -self.rotation.y.cos() * self.rotation.x.cos(),
+        }.normalize();
+        
+        forward
     }
 
     fn moveForward(&mut self, distance: f32) {
-        //TODO: implement
+        let forward = self.getForwardVector();
+        self.position.x += forward.x * distance;
+        self.position.y += forward.y * distance;
+        self.position.z += forward.z * distance;
         self.calculateViewMatrix();
     }
 
     fn moveRight(&mut self, distance: f32) {
-        //TODO: implement
+        let forward = self.getForwardVector();
+        let right = Vector3::new(-forward.z, 0., forward.x).normalize();
+        self.position.x -= right.x * distance;
+        self.position.y -= right.y * distance;
+        self.position.z -= right.z * distance;
         self.calculateViewMatrix();
     }
 
     fn moveUp(&mut self, distance: f32) {
-        //TODO: implement
+        self.position.y += distance;
         self.calculateViewMatrix();
     }
+
 
     fn rotateUp(&mut self, angle: f32) {
         self.rotation.x += angle;
@@ -737,7 +808,7 @@ impl Camera {
     }
 
     fn rotateRight(&mut self, angle: f32) {
-        self.rotation.y += angle;
+        self.rotation.y -= angle;
         self.calculateViewMatrix();
     }
 
@@ -791,33 +862,7 @@ fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
     f
 }
 
-#[derive(Copy, Clone, Debug)]
-struct Face {
-    vertices: [Vector4; 3],
-    color: Vector3,
-}
 
-impl Face {
-    fn new(vertices: [Vector4; 3], color: Vector3) -> Face {
-        Face { vertices, color }
-    }
-}
-
-fn drawFaces(faces: &Vec<Face>, transformation: Matrix44, fb: &mut FrameBuffer, Camera: &Camera) {
-    let finalMatrix = Camera.getPvMatrix().mul(transformation);
-    for face in faces {
-        let mut vertices: [Vector4; 3] = face.vertices;
-        for i in 0..3 {
-            vertices[i] = transformVertex(vertices[i], finalMatrix);
-        }
-        fill_triangle(
-            Vector2::new(vertices[0].x, vertices[0].y),
-            Vector2::new(vertices[1].x, vertices[1].y),
-            Vector2::new(vertices[2].x, vertices[2].y),
-            fb,
-        );
-    }
-}
 
 fn main() {
     let aspectX = 16;
@@ -957,16 +1002,16 @@ fn main() {
                 Keycode::E => {
                     Camera.moveUp(-0.1);
                 }
-                Keycode::Up => {
+                Keycode::I => {
                     Camera.rotateUp(0.01);
                 }
-                Keycode::Down => {
+                Keycode::K => {
                     Camera.rotateUp(-0.01);
                 }
-                Keycode::Left => {
+                Keycode::J => {
                     Camera.rotateRight(-0.01);
                 }
-                Keycode::Right => {
+                Keycode::L => {
                     Camera.rotateRight(0.01);
                 }
                 _ => {}
@@ -998,7 +1043,7 @@ fn main() {
             angle,
         );
 
-        angle += 0.01;
+        // angle += 0.01;
 
         // let finalMatrix = PvMatrix.mul(transformation);
 
@@ -1014,6 +1059,7 @@ fn main() {
         // Vector2 { x: fv3.x, y: fv3.y },
         // &mut fb,
         // );
+        println!("ForwardVector: {:?}", Camera.getForwardVector());
         drawFaces(&CubeFaces, transformation, &mut fb, &Camera);
         fb.draw_frame();
 
