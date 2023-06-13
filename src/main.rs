@@ -141,159 +141,67 @@ fn draw_line(v1: UsizeVector2, v2: UsizeVector2, fb: &mut FrameBuffer) {
     fb.set_pixel(x2 as usize, y2 as usize, white);
 }
 
-fn fill_bottom_flat_triangle(
-    v1: UsizeVector2,
-    v2: UsizeVector2,
-    v3: UsizeVector2,
-    fb: &mut FrameBuffer,
-) {
-    //draws a triangle from v1 to v2 to v3
-    //uses Bresenham's line algorithm
-    //sort vertices by y value
-    let mut v1 = v1;
-    let mut v2 = v2;
-    let mut v3 = v3;
-    if v1.y > v2.y {
-        let temp = v1;
-        v1 = v2;
-        v2 = temp;
-    }
-    if v1.y > v3.y {
-        let temp = v1;
-        v1 = v3;
-        v3 = temp;
-    }
-    if v2.y > v3.y {
-        let temp = v2;
-        v2 = v3;
-        v3 = temp;
-    }
 
-    let invslope1 = (v2.x as f32 - v1.x as f32) / (v2.y as f32 - v1.y as f32);
-    let invslope2 = (v3.x as f32 - v1.x as f32) / (v3.y as f32 - v1.y as f32);
-
-    let mut curx1 = v1.x as f32;
-    let mut curx2 = v1.x as f32;
-
-    for scanline_y in v1.y..=v2.y {
-        draw_line(
-            UsizeVector2 {
-                x: curx1 as usize,
-                y: scanline_y,
-            },
-            UsizeVector2 {
-                x: curx2 as usize,
-                y: scanline_y,
-            },
-            fb,
-        );
-        curx1 += invslope1;
-        curx2 += invslope2;
-    }
-}
-
-fn fill_top_flat_triangle(
-    v1: UsizeVector2,
-    v2: UsizeVector2,
-    v3: UsizeVector2,
-    fb: &mut FrameBuffer,
-) {
-    //draws a triangle from v1 to v2 to v3
-    //uses Bresenham's line algorithm
-    //sort vertices by y value
-    let mut v1 = v1;
-    let mut v2 = v2;
-    let mut v3 = v3;
-    if v1.y > v2.y {
-        let temp = v1;
-        v1 = v2;
-        v2 = temp;
-    }
-    if v1.y > v3.y {
-        let temp = v1;
-        v1 = v3;
-        v3 = temp;
-    }
-    if v2.y > v3.y {
-        let temp = v2;
-        v2 = v3;
-        v3 = temp;
-    }
-
-    let invslope1 = (v3.x as f32 - v1.x as f32) / (v3.y as f32 - v1.y as f32);
-    let invslope2 = (v3.x as f32 - v2.x as f32) / (v3.y as f32 - v2.y as f32);
-
-    let mut curx1 = v3.x as f32;
-    let mut curx2 = v3.x as f32;
-
-    for scanline_y in (v1.y..=v3.y).rev() {
-        draw_line(
-            UsizeVector2 {
-                x: curx1 as usize,
-                y: scanline_y,
-            },
-            UsizeVector2 {
-                x: curx2 as usize,
-                y: scanline_y,
-            },
-            fb,
-        );
-        curx1 -= invslope1;
-        curx2 -= invslope2;
-    }
-}
 
 fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer) {
     let hwid = fb.width as f32 / 2.;
     let hhei = fb.height as f32 / 2.;
 
-    let mut v1 = UsizeVector2 {
-        x: ((vv1.x + 1.) * hwid) as usize,
+    let mut v1: UsizeVector2 = UsizeVector2{ 
+        x:((vv1.x + 1.) * hwid) as usize,
         // y: ((vv1.y + 1.) * hhei) as usize,
-        y: ((-vv1.y + 1.) * hhei) as usize,
+        y:((-vv1.y + 1.) * hhei) as usize,
     };
 
-    let mut v2 = UsizeVector2 {
-        x: ((vv2.x + 1.) * hwid) as usize,
+    let mut v2: UsizeVector2 = UsizeVector2{ 
+        x:((vv2.x + 1.) * hwid) as usize,
         // y: ((vv2.y + 1.) * hhei) as usize,
-        y: ((-vv2.y + 1.) * hhei) as usize,
+        y:((-vv2.y + 1.) * hhei) as usize,
     };
 
-    let mut v3 = UsizeVector2 {
-        x: ((vv3.x + 1.) * hwid) as usize,
+    let mut v3: UsizeVector2 = UsizeVector2{ 
+        x:((vv3.x + 1.) * hwid) as usize,
         // y: ((vv3.y + 1.) * hhei) as usize,
-        y: ((-vv3.y + 1.) * hhei) as usize,
+        y:((-vv3.y + 1.) * hhei) as usize,
     };
 
+    // Sort the vertices by y value
     if v1.y > v2.y {
-        let temp = v1;
-        v1 = v2;
-        v2 = temp;
+        std::mem::swap(&mut v1, &mut v2);
     }
-
     if v1.y > v3.y {
-        let temp = v1;
-        v1 = v3;
-        v3 = temp;
+        std::mem::swap(&mut v1, &mut v3);
     }
-
     if v2.y > v3.y {
-        let temp = v2;
-        v2 = v3;
-        v3 = temp;
+        std::mem::swap(&mut v2, &mut v3);
     }
 
-    if v2.y == v3.y {
-        fill_bottom_flat_triangle(v1, v2, v3, fb);
-    } else if v1.y == v2.y {
-        fill_top_flat_triangle(v1, v2, v3, fb);
-    } else {
-        let v4 = UsizeVector2 {
-            x: (v1.x + ((v2.y - v1.y) / (v3.y - v1.y)) * (v3.x - v1.x)) as usize,
-            y: v2.y as usize,
-        };
-        fill_bottom_flat_triangle(v1, v2, v4, fb);
-        fill_top_flat_triangle(v2, v4, v3, fb);
+    // Calculate the slopes of the edges
+    let mut s1 = (v2.x as f32 - v1.x as f32) / (v2.y as f32 - v1.y as f32);
+    let mut s2 = (v3.x as f32 - v1.x as f32) / (v3.y as f32 - v1.y as f32);
+
+    // Calculate the x values for the edges
+    let mut x1 = v1.x as f32;
+    let mut x2 = v1.x as f32;
+
+    // Draw the top half of the triangle
+    for y in v1.y..v2.y {
+        draw_line(UsizeVector2::new(x1 as usize, y), UsizeVector2::new(x2 as usize, y), fb);
+        x1 += s1;
+        x2 += s2;
+    }
+
+    // Calculate the slope of the bottom edge
+    s1 = (v3.x as f32 - v2.x as f32) / (v3.y as f32 - v2.y as f32);
+
+    // Calculate the x value for the left edge
+    x1 = v2.x as f32;
+
+    // Draw the bottom half of the triangle
+    for y in v2.y..v3.y {
+        draw_line(UsizeVector2::new(x1 as usize, y), UsizeVector2::new(x2 as usize, y), fb);
+        x1 += s1;
+        x2 += s2;
     }
 }
 
@@ -381,6 +289,12 @@ impl Vector2 {
 struct UsizeVector2 {
     x: usize,
     y: usize,
+}
+
+impl UsizeVector2 {
+    fn new(x: usize, y: usize) -> UsizeVector2 {
+        UsizeVector2 { x, y }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
