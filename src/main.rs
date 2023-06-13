@@ -2,6 +2,7 @@
 use std::io::{BufWriter, Write};
 use std::time::{Duration, Instant};
 use std::{thread, time};
+use device_query::{DeviceQuery, DeviceState, Keycode};
 
 #[derive(Copy, Clone, Debug)]
 struct Vector2 {
@@ -438,7 +439,11 @@ impl Camera {
     ) -> Camera {
         let mut camera = Camera {
             position: startPos,
-            rotation: Vector3 { x: startRotation.x.to_radians(), y: startRotation.y.to_radians(), z: startRotation.z.to_radians() }, 
+            rotation: Vector3 {
+                x: startRotation.x.to_radians(),
+                y: startRotation.y.to_radians(),
+                z: startRotation.z.to_radians(),
+            },
             projMatrix: Matrix44::identity(),
             viewMatrix: Matrix44::identity(),
         };
@@ -460,9 +465,12 @@ impl Camera {
         // self.viewMatrix.rotateX(self.rotation.x);
         // self.viewMatrix.rotateY(self.rotation.y);
         // self.viewMatrix.rotateZ(self.rotation.z);
-        self.viewMatrix.rotate(Vector3::new(1., 0., 0.), self.rotation.x);
-        self.viewMatrix.rotate(Vector3::new(0., 1., 0.), self.rotation.y);
-        self.viewMatrix.rotate(Vector3::new(0., 0., 1.), self.rotation.z);
+        self.viewMatrix
+            .rotate(Vector3::new(1., 0., 0.), self.rotation.x);
+        self.viewMatrix
+            .rotate(Vector3::new(0., 1., 0.), self.rotation.y);
+        self.viewMatrix
+            .rotate(Vector3::new(0., 0., 1.), self.rotation.z);
         self.viewMatrix
             .translate(-self.position.x, -self.position.y, -self.position.z);
         // .rotateX(self.rotation.x)
@@ -477,16 +485,17 @@ impl Camera {
 
     fn createProjectionMatrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32) {
         let fov = fov.to_radians();
-        let fovY = 1.0 / (fov * 0.5).tan();
-        let fovX = fovY / aspect;
+        let scale = 1.0 / (fov * 0.5).tan(); // Precompute to avoid duplicate calculation
+        let fovY = scale * aspect;
+        let fovX = scale;
         let f = far / (far - near);
         let nf = -(far * near) / (far - near);
         self.projMatrix = Matrix44 {
             m: [
                 [fovX, 0.0, 0.0, 0.0],
                 [0.0, fovY, 0.0, 0.0],
-                [0.0, 0.0, f, 1.0],
-                [0.0, 0.0, nf, 0.0],
+                [0.0, 0.0, f, nf],
+                [0.0, 0.0, 1.0, 0.0],
             ],
         };
     }
@@ -742,26 +751,21 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
 
     let mut v1 = UsizeVector2 {
         x: ((vv1.x + 1.) * hwid) as usize,
+        // y: ((vv1.y + 1.) * hhei) as usize,
         y: ((-vv1.y + 1.) * hhei) as usize,
     };
 
     let mut v2 = UsizeVector2 {
         x: ((vv2.x + 1.) * hwid) as usize,
+        // y: ((vv2.y + 1.) * hhei) as usize,
         y: ((-vv2.y + 1.) * hhei) as usize,
     };
 
     let mut v3 = UsizeVector2 {
         x: ((vv3.x + 1.) * hwid) as usize,
+        // y: ((vv3.y + 1.) * hhei) as usize,
         y: ((-vv3.y + 1.) * hhei) as usize,
     };
-
-    println!("vv1: {:?}", vv1);
-    println!("vv2: {:?}", vv2);
-    println!("vv3: {:?}", vv3);
-
-    println!("v1: {:?}", v1);
-    println!("v2: {:?}", v2);
-    println!("v3: {:?}", v3);
 
     if v1.y > v2.y {
         let temp = v1;
@@ -800,18 +804,10 @@ fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
 
     f = MvMatrix.mul_vec(vertex);
 
-    // f.x/f.w;
-    // f.y/f.w;
-    // f.z/f.w;
-
-    // println!("f: {:?}", f);
-
-    if f.w == 0. {
-        f.w = 0.01;
-    }
     f.x = f.x / f.w;
     f.y = f.y / f.w;
     f.z = f.z / f.w;
+    f.w = 1.;
 
     f
 }
@@ -835,13 +831,13 @@ fn main() {
         },
         Vector3 {
             x: 0.,
-            y: 0.2,
+            y: 0.,
             z: 0.,
         },
         90.,
-        aspectX as f32 / 2. / aspectY as f32,
-        0.01,
-        400.,
+        (aspectX * rate) as f32 / 2. / (aspectY * rate) as f32,
+        1e-3,
+        1000.,
     );
 
     let mut angle = 0.;
@@ -862,38 +858,47 @@ fn main() {
 
     let v1 = Vector4 {
         x: 0.,
-        y: 1.,
+        y: -1.,
         z: 0.,
         w: 1.,
     };
 
     let v2 = Vector4 {
         x: -0.5,
-        y: -1.,
+        y: 1.,
         z: 0.,
         w: 1.,
     };
 
     let v3 = Vector4 {
         x: 0.5,
-        y: -1.,
+        y: 1.,
         z: 0.,
         w: 1.,
     };
-
-    // transformation.translate(0.0, 0.0, 0.0);
-    transformation.translate(0.0, 0., 200.0);
 
     loop {
         Camera.calculateViewMatrix();
         let PvMatrix = Camera.getPvMatrix();
 
+        transformation = Matrix44::identity();
+
         // transformation.translate(0.0, 0., 1.0);
 
-        transformation.rotate(Vector3 { x: 0., y: 1., z: 0. }, angle);
+        // transformation.translate(0.0, 0., -0.01);
 
+        transformation.translate(0.0, 0.0, 1.5);
 
-        angle = 0.05;
+        transformation.rotate(
+            Vector3 {
+                x: 0.,
+                y: 1.,
+                z: 0.,
+            },
+            angle,
+        );
+
+        angle += 0.01;
 
         let finalMatrix = PvMatrix.mul(transformation);
 
@@ -902,39 +907,11 @@ fn main() {
         let fv2 = transformVertex(v2, finalMatrix);
         let fv3 = transformVertex(v3, finalMatrix);
 
-        // let fv1 = transformation.mul_vec(v1);
-        // let fv2 = transformation.mul_vec(v2);
-        // let fv3 = transformation.mul_vec(v3);
-
-        //clear terminal
-
-        // println!("v1: {:?}", v1);
-        // println!("v2: {:?}", v2);
-        // println!("v3: {:?}", v3);
-
-        // println!("fv1: {:?}", fv1);
-        // println!("fv2: {:?}", fv2);
-        // println!("fv3: {:?}", fv3);
-
-        println!(
-            "transformation: {:?}",
-            transformation
-        );
-
         fb.clear();
         fill_triangle(
-            Vector2 {
-                x: fv1.x,
-                y: fv1.y,
-            },
-            Vector2 {
-                x: fv2.x,
-                y: fv2.y,
-            },
-            Vector2 {
-                x: fv3.x,
-                y: fv3.y,
-            },
+            Vector2 { x: fv1.x, y: fv1.y },
+            Vector2 { x: fv2.x, y: fv2.y },
+            Vector2 { x: fv3.x, y: fv3.y },
             &mut fb,
         );
         fb.draw_frame();
