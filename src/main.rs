@@ -1,5 +1,6 @@
 //import time
 use std::io::{BufWriter, Write};
+use std::time::{Duration, Instant};
 use std::{thread, time};
 
 #[derive(Copy, Clone, Debug)]
@@ -97,11 +98,19 @@ impl Vector3 {
     }
 
     fn zero() -> Vector3 {
-        Vector3 { x: 0., y: 0., z: 0. }
+        Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        }
     }
 
     fn one() -> Vector3 {
-        Vector3 { x: 1., y: 1., z: 1. }
+        Vector3 {
+            x: 1.,
+            y: 1.,
+            z: 1.,
+        }
     }
 
     fn add(&self, other: Vector3) -> Vector3 {
@@ -272,7 +281,7 @@ struct Matrix44 {
     m: [[f32; 4]; 4],
 }
 
-impl Matrix44{
+impl Matrix44 {
     fn new(m: [[f32; 4]; 4]) -> Matrix44 {
         Matrix44 { m }
     }
@@ -290,12 +299,7 @@ impl Matrix44{
 
     fn zero() -> Matrix44 {
         Matrix44 {
-            m: [
-                [0.0; 4],
-                [0.0; 4],
-                [0.0; 4],
-                [0.0; 4],
-            ],
+            m: [[0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4]],
         }
     }
 
@@ -355,18 +359,6 @@ impl Matrix44{
         m[0][0] + m[1][1] + m[2][2] + m[3][3]
     }
 
-    fn translate(&self, x: f32, y: f32, z: f32) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        m[0][0] = self.m[0][0];
-        m[1][1] = self.m[1][1];
-        m[2][2] = self.m[2][2];
-        m[3][3] = self.m[3][3];
-        m[0][3] = x;
-        m[1][3] = y;
-        m[2][0] = z;
-        Matrix44 { m }
-    }
-
     fn negate(&self) -> Matrix44 {
         let mut m = [[0.0; 4]; 4];
         for i in 0..4 {
@@ -377,74 +369,76 @@ impl Matrix44{
         Matrix44 { m }
     }
 
-    fn rotateX(&self, angle: f32) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        let c = angle.cos();
-        let s = angle.sin();
-        m[0][0] = self.m[0][0];
-        m[1][1] = c;
-        m[1][2] = s;
-        m[2][1] = -s;
-        m[2][2] = c;
-        m[3][3] = self.m[3][3];
-        Matrix44 { m }
-    }
-
-    fn rotateY(&self, angle: f32) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        let c = angle.cos();
-        let s = angle.sin();
-        m[0][0] = c;
-        m[0][2] = -s;
-        m[1][1] = self.m[1][1];
-        m[2][0] = s;
-        m[2][2] = c;
-        m[3][3] = self.m[3][3];
-        Matrix44 { m }
-    }
-
-    fn rotateZ(&self, angle: f32) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        let c = angle.cos();
-        let s = angle.sin();
-        m[0][0] = c;
-        m[0][1] = s;
-        m[1][0] = -s;
-        m[1][1] = c;
-        m[2][2] = self.m[2][2];
-        m[3][3] = self.m[3][3];
-        Matrix44 { m }
-    }
-
-
     //multiply a matrix by a vector
 
     fn mul_vec(&self, other: Vector4) -> Vector4 {
         let mut v = Vector4::new(0., 0., 0., 0.);
-        v.x = (self.m[0][0] * other.x as f32 + self.m[0][1] * other.y as f32 + self.m[0][2] * other.z as f32 + self.m[0][3] * other.w as f32);
-        v.y = (self.m[1][0] * other.x as f32 + self.m[1][1] * other.y as f32 + self.m[1][2] * other.z as f32 + self.m[1][3] * other.w as f32);
-        v.z = (self.m[2][0] * other.x as f32 + self.m[2][1] * other.y as f32 + self.m[2][2] * other.z as f32 + self.m[2][3] * other.w as f32);
-        v.w = (self.m[3][0] * other.x as f32 + self.m[3][1] * other.y as f32 + self.m[3][2] * other.z as f32 + self.m[3][3] * other.w as f32);
+        v.x = (self.m[0][0] * other.x as f32
+            + self.m[0][1] * other.y as f32
+            + self.m[0][2] * other.z as f32
+            + self.m[0][3] * other.w as f32);
+        v.y = (self.m[1][0] * other.x as f32
+            + self.m[1][1] * other.y as f32
+            + self.m[1][2] * other.z as f32
+            + self.m[1][3] * other.w as f32);
+        v.z = (self.m[2][0] * other.x as f32
+            + self.m[2][1] * other.y as f32
+            + self.m[2][2] * other.z as f32
+            + self.m[2][3] * other.w as f32);
+        v.w = (self.m[3][0] * other.x as f32
+            + self.m[3][1] * other.y as f32
+            + self.m[3][2] * other.z as f32
+            + self.m[3][3] * other.w as f32);
         v
     }
 
+    fn translate(&mut self, x: f32, y: f32, z: f32) {
+        let mut m = Matrix44::identity();
+        m.m[0][3] = x;
+        m.m[1][3] = y;
+        m.m[2][3] = z;
+        *self = self.mul(m);
+    }
+
+    fn rotate(&mut self, axis: Vector3, angle: f32) {
+        let mut m = Matrix44::identity();
+
+        m.m[0][0] = angle.cos() + axis.x * axis.x * (1. - angle.cos());
+        m.m[0][1] = axis.x * axis.y * (1. - angle.cos()) - axis.z * angle.sin();
+        m.m[0][2] = axis.x * axis.z * (1. - angle.cos()) + axis.y * angle.sin();
+
+        m.m[1][0] = axis.y * axis.x * (1. - angle.cos()) + axis.z * angle.sin();
+        m.m[1][1] = angle.cos() + axis.y * axis.y * (1. - angle.cos());
+        m.m[1][2] = axis.y * axis.z * (1. - angle.cos()) - axis.x * angle.sin();
+
+        m.m[2][0] = axis.z * axis.x * (1. - angle.cos()) - axis.y * angle.sin();
+        m.m[2][1] = axis.z * axis.y * (1. - angle.cos()) + axis.x * angle.sin();
+        m.m[2][2] = angle.cos() + axis.z * axis.z * (1. - angle.cos());
+
+        *self = self.mul(m);
+    }
 }
 
-
 #[derive(Copy, Clone, Debug)]
-struct Camera{
+struct Camera {
     position: Vector3,
     rotation: Vector3,
     projMatrix: Matrix44,
     viewMatrix: Matrix44,
 }
 
-impl Camera{
-
-    fn new(startPos: Vector3, startRotation: Vector3, fov: f32, aspect: f32, near: f32, far: f32) -> Camera{
-        let mut camera = Camera{
+impl Camera {
+    fn new(
+        startPos: Vector3,
+        startRotation: Vector3,
+        fov: f32,
+        aspect: f32,
+        near: f32,
+        far: f32,
+    ) -> Camera {
+        let mut camera = Camera {
             position: startPos,
-            rotation: startRotation,
+            rotation: Vector3 { x: startRotation.x.to_radians(), y: startRotation.y.to_radians(), z: startRotation.z.to_radians() }, 
             projMatrix: Matrix44::identity(),
             viewMatrix: Matrix44::identity(),
         };
@@ -453,203 +447,50 @@ impl Camera{
         camera
     }
 
-    fn getPosition(&self) -> Vector3{
+    fn getPosition(&self) -> Vector3 {
         self.position
     }
 
-    fn getRotation(&self) -> Vector3{
+    fn getRotation(&self) -> Vector3 {
         self.rotation
     }
 
-    fn calculateViewMatrix(&mut self){
-        self.viewMatrix = Matrix44::identity().rotateX(self.rotation.x).rotateY(self.rotation.y).rotateZ(self.rotation.z).translate(self.position.x, self.position.y, self.position.z);
+    fn calculateViewMatrix(&mut self) {
+        self.viewMatrix = Matrix44::identity();
+        // self.viewMatrix.rotateX(self.rotation.x);
+        // self.viewMatrix.rotateY(self.rotation.y);
+        // self.viewMatrix.rotateZ(self.rotation.z);
+        self.viewMatrix.rotate(Vector3::new(1., 0., 0.), self.rotation.x);
+        self.viewMatrix.rotate(Vector3::new(0., 1., 0.), self.rotation.y);
+        self.viewMatrix.rotate(Vector3::new(0., 0., 1.), self.rotation.z);
+        self.viewMatrix
+            .translate(-self.position.x, -self.position.y, -self.position.z);
+        // .rotateX(self.rotation.x)
+        // .rotateY(self.rotation.y)
+        // .rotateZ(self.rotation.z)
+        // .translate(self.position.x, self.position.y, self.position.z);
     }
 
-    fn getPvMatrix(&self) -> Matrix44{
+    fn getPvMatrix(&self) -> Matrix44 {
         self.projMatrix.mul(self.viewMatrix)
     }
 
-    fn createProjectionMatrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32){
-        let fovRad = 1.0 / (fov * 0.5 / 180.0 * 3.14159).tan();
-        self.projMatrix = Matrix44::identity();
-        self.projMatrix.m[0][0] = aspect * fovRad;
-        self.projMatrix.m[1][1] = fovRad;
-        self.projMatrix.m[2][2] = far / (far - near);
-        self.projMatrix.m[3][2] = (-far * near) / (far - near);
-        self.projMatrix.m[2][3] = 1.0;
-        self.projMatrix.m[3][3] = 0.0;
+    fn createProjectionMatrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32) {
+        let fov = fov.to_radians();
+        let fovY = 1.0 / (fov * 0.5).tan();
+        let fovX = fovY / aspect;
+        let f = far / (far - near);
+        let nf = -(far * near) / (far - near);
+        self.projMatrix = Matrix44 {
+            m: [
+                [fovX, 0.0, 0.0, 0.0],
+                [0.0, fovY, 0.0, 0.0],
+                [0.0, 0.0, f, 1.0],
+                [0.0, 0.0, nf, 0.0],
+            ],
+        };
     }
 }
-
-// #[derive(Copy, Clone, Debug)]
-// struct FrameBuffer {
-//     buffer: Vec<u32>,
-//     width: usize,
-//     height: usize,
-// }
-
-// struct Color {
-//     r: u8,
-//     g: u8,
-//     b: u8,
-// }
-
-// impl FrameBuffer {
-//     fn new(width: usize, height: usize) -> FrameBuffer {
-//         FrameBuffer {
-//             buffer: vec![0; width * height],
-//             width,
-//             height,
-//         }
-//     }
-
-//     fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-//         let color = (color.r as u32) << 16 | (color.g as u32) << 8 | color.b as u32;
-//         //check if x and y are in bounds
-//         if x >= self.width || y >= self.height {
-//             return;
-//         }
-//         self.buffer[y * self.width + x] = color;
-//     }
-
-//     fn get_pixel(&self, x: usize, y: usize) -> u32 {
-//         self.buffer[y * self.width + x]
-//     }
-
-//     fn draw_frame(&self) {
-//         let mut out = String::new();
-//         out.push_str("\x1B[2J\x1B[1;1H");
-//         for y in 0..self.height {
-//             for x in 0..self.width {
-//                 // print!("{}", self.get_pixel(x, y) as u8 as char);
-//                 //use true color escape sequence
-//                 // print!("\x1b[48;2;{};{};{}m  ", self.get_pixel(x, y) >> 16, (self.get_pixel(x, y) >> 8) & 0xff, self.get_pixel(x, y) & 0xff);
-//                 //use write! to avoid flushing stdout
-//                 // write!(std::io::stdout(), "\x1b[48;2;{};{};{}m  ", self.get_pixel(x, y) >> 16, (self.get_pixel(x, y) >> 8) & 0xff, self.get_pixel(x, y) & 0xff).unwrap();
-//                 out.push_str(&format!("\x1b[48;2;{};{};{}m  ", self.get_pixel(x, y) >> 16, (self.get_pixel(x, y) >> 8) & 0xff, self.get_pixel(x, y) & 0xff));
-//             }
-//             // println!("\x1b[0m");
-//             // write!(std::io::stdout(), "\x1b[0m\n").unwrap();
-//             out.push_str("\x1b[0m\n");
-//         }
-//         write!(std::io::stdout(), "{}", out).unwrap();
-//     }
-
-//     fn clear(&mut self) {
-//         self.buffer = vec![0; self.width * self.height];
-//     }
-// }
-
-// struct FrameBuffer {
-//     buffer: Vec<u32>,
-//     width: usize,
-//     height: usize,
-// }
-
-// struct Color {
-//     r: u8,
-//     g: u8,
-//     b: u8,
-// }
-
-// impl FrameBuffer {
-//     fn new(width: usize, height: usize) -> FrameBuffer {
-//         FrameBuffer {
-//             buffer: vec![0; width * height],
-//             width,
-//             height,
-//         }
-//     }
-
-//     fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-//         let color = (color.r as u32) << 16 | (color.g as u32) << 8 | color.b as u32;
-//         //check if x and y are in bounds
-//         if x >= self.width || y >= self.height {
-//             return;
-//         }
-//         self.buffer[y * self.width + x] = color;
-//     }
-
-//     fn get_pixel(&self, x: usize, y: usize) -> u32 {
-//         self.buffer[y * self.width + x]
-//     }
-
-//     fn draw_frame(&self) {
-//         let stdout = std::io::stdout();
-//         let mut out = BufWriter::new(stdout.lock());
-//         write!(out, "\x1B[2J\x1B[1;1H").unwrap();
-//         for y in 0..self.height {
-//             for x in 0..self.width {
-//                 write!(out, "\x1b[48;2;{};{};{}m  ", self.get_pixel(x, y) >> 16, (self.get_pixel(x, y) >> 8) & 0xff, self.get_pixel(x, y) & 0xff).unwrap();
-//             }
-//             write!(out, "\x1b[0m\n").unwrap();
-//         }
-//         out.flush().unwrap();
-//     }
-
-//     fn clear(&mut self) {
-//         self.buffer = vec![0; self.width * self.height];
-//     }
-// }
-
-// struct FrameBuffer {
-//     front_buffer: Vec<u32>,
-//     back_buffer: Vec<u32>,
-//     width: usize,
-//     height: usize,
-// }
-
-// struct Color {
-//     r: u8,
-//     g: u8,
-//     b: u8,
-// }
-
-// impl FrameBuffer {
-//     fn new(width: usize, height: usize) -> FrameBuffer {
-//         FrameBuffer {
-//             front_buffer: vec![0; width * height],
-//             back_buffer: vec![0; width * height],
-//             width,
-//             height,
-//         }
-//     }
-
-//     fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-//         let color = (color.r as u32) << 16 | (color.g as u32) << 8 | color.b as u32;
-//         //check if x and y are in bounds
-//         if x >= self.width || y >= self.height {
-//             return;
-//         }
-//         self.back_buffer[y * self.width + x] = color;
-//     }
-
-//     fn get_pixel(&self, x: usize, y: usize) -> u32 {
-//         self.front_buffer[y * self.width + x]
-//     }
-
-//     fn draw_frame(&mut self) {
-//         let stdout = std::io::stdout();
-//         let mut out = BufWriter::new(stdout.lock());
-//         write!(out, "\x1B[2J\x1B[1;1H").unwrap();
-//         for y in 0..self.height {
-//             for x in 0..self.width {
-//                 write!(out, "\x1b[48;2;{};{};{}m  ", self.get_pixel(x, y) >> 16, (self.get_pixel(x, y) >> 8) & 0xff, self.get_pixel(x, y) & 0xff).unwrap();
-//             }
-//             write!(out, "\x1b[0m\n").unwrap();
-//         }
-//         out.flush().unwrap();
-//         self.swap_buffers();
-//     }
-
-//     fn clear(&mut self) {
-//         self.back_buffer = vec![0; self.width * self.height];
-//     }
-
-//     fn swap_buffers(&mut self) {
-//         std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
-//     }
-// }
 
 struct FrameBuffer {
     front_buffer: Vec<u32>,
@@ -793,7 +634,12 @@ fn draw_line(v1: UsizeVector2, v2: UsizeVector2, fb: &mut FrameBuffer) {
     }
 }
 
-fn fill_bottom_flat_triangle(v1: &UsizeVector2, v2: &UsizeVector2, v3: &UsizeVector2, fb: &mut FrameBuffer) {
+fn fill_bottom_flat_triangle(
+    v1: UsizeVector2,
+    v2: UsizeVector2,
+    v3: UsizeVector2,
+    fb: &mut FrameBuffer,
+) {
     //draws a triangle from v1 to v2 to v3
     //uses Bresenham's line algorithm
     //sort vertices by y value
@@ -839,7 +685,12 @@ fn fill_bottom_flat_triangle(v1: &UsizeVector2, v2: &UsizeVector2, v3: &UsizeVec
     }
 }
 
-fn fill_top_flat_triangle(v1: &UsizeVector2, v2: &UsizeVector2, v3: &UsizeVector2, fb: &mut FrameBuffer) {
+fn fill_top_flat_triangle(
+    v1: UsizeVector2,
+    v2: UsizeVector2,
+    v3: UsizeVector2,
+    fb: &mut FrameBuffer,
+) {
     //draws a triangle from v1 to v2 to v3
     //uses Bresenham's line algorithm
     //sort vertices by y value
@@ -889,7 +740,6 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
     let hwid = fb.width as f32 / 2.;
     let hhei = fb.height as f32 / 2.;
 
-    
     let mut v1 = UsizeVector2 {
         x: ((vv1.x + 1.) * hwid) as usize,
         y: ((-vv1.y + 1.) * hhei) as usize,
@@ -904,6 +754,14 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
         x: ((vv3.x + 1.) * hwid) as usize,
         y: ((-vv3.y + 1.) * hhei) as usize,
     };
+
+    println!("vv1: {:?}", vv1);
+    println!("vv2: {:?}", vv2);
+    println!("vv3: {:?}", vv3);
+
+    println!("v1: {:?}", v1);
+    println!("v2: {:?}", v2);
+    println!("v3: {:?}", v3);
 
     if v1.y > v2.y {
         let temp = v1;
@@ -924,27 +782,36 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
     }
 
     if v2.y == v3.y {
-        fill_bottom_flat_triangle(&v1, &v2, &v3, fb);
+        fill_bottom_flat_triangle(v1, v2, v3, fb);
     } else if v1.y == v2.y {
-        fill_top_flat_triangle(&v1, &v2, &v3, fb);
+        fill_top_flat_triangle(v1, v2, v3, fb);
     } else {
         let v4 = UsizeVector2 {
             x: (v1.x + ((v2.y - v1.y) / (v3.y - v1.y)) * (v3.x - v1.x)) as usize,
             y: v2.y as usize,
         };
-        fill_bottom_flat_triangle(&v1, &v2, &v4, fb);
-        fill_top_flat_triangle(&v2, &v4, &v3, fb);
+        fill_bottom_flat_triangle(v1, v2, v4, fb);
+        fill_top_flat_triangle(v2, v4, v3, fb);
     }
 }
 
-fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4{
+fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
     let mut f: Vector4;
 
     f = MvMatrix.mul_vec(vertex);
 
-    f.x/f.w;
-    f.y/f.w;
-    f.z/f.w;
+    // f.x/f.w;
+    // f.y/f.w;
+    // f.z/f.w;
+
+    // println!("f: {:?}", f);
+
+    if f.w == 0. {
+        f.w = 0.01;
+    }
+    f.x = f.x / f.w;
+    f.y = f.y / f.w;
+    f.z = f.z / f.w;
 
     f
 }
@@ -954,6 +821,8 @@ fn main() {
     let aspectY = 9;
     let rate = 10;
 
+    let start_time = Instant::now();
+
     // let aspectX = 64;
     // let aspectY = 48;
     // let rate = 1;
@@ -962,16 +831,16 @@ fn main() {
         Vector3 {
             x: 0.,
             y: 0.,
-            z: 10.,
+            z: 0.,
         },
         Vector3 {
             x: 0.,
-            y: 0.,
+            y: 0.2,
             z: 0.,
         },
         90.,
         aspectX as f32 / 2. / aspectY as f32,
-        0.1,
+        0.01,
         400.,
     );
 
@@ -984,8 +853,6 @@ fn main() {
         [0., 0., 0., 1.],
     ]);
 
-    transformation = transformation.translate(0., 0., -10.);
-
     let mut fb = FrameBuffer::new(aspectX * rate, aspectY * rate, Color { r: 0, g: 0, b: 0 });
     let fps = 64;
 
@@ -994,70 +861,85 @@ fn main() {
     let mut dt = 0;
 
     let v1 = Vector4 {
-        x: -0.5,
-        y: 0.5,
+        x: 0.,
+        y: 1.,
         z: 0.,
         w: 1.,
     };
 
     let v2 = Vector4 {
-        x: 0.5,
-        y: 0.5,
+        x: -0.5,
+        y: -1.,
         z: 0.,
         w: 1.,
     };
 
     let v3 = Vector4 {
-        x: 0.,
-        y: -0.5,
+        x: 0.5,
+        y: -1.,
         z: 0.,
         w: 1.,
     };
 
+    // transformation.translate(0.0, 0.0, 0.0);
+    transformation.translate(0.0, 0., 200.0);
 
     loop {
         Camera.calculateViewMatrix();
         let PvMatrix = Camera.getPvMatrix();
-        transformation = transformation.rotateY(angle);
-        transformation = transformation.translate(0.0, 0., 0.5);
 
-        // angle += 0.01;
+        // transformation.translate(0.0, 0., 1.0);
+
+        transformation.rotate(Vector3 { x: 0., y: 1., z: 0. }, angle);
+
+
+        angle = 0.05;
 
         let finalMatrix = PvMatrix.mul(transformation);
-    
 
         //apply transformation
         let fv1 = transformVertex(v1, finalMatrix);
         let fv2 = transformVertex(v2, finalMatrix);
         let fv3 = transformVertex(v3, finalMatrix);
 
+        // let fv1 = transformation.mul_vec(v1);
+        // let fv2 = transformation.mul_vec(v2);
+        // let fv3 = transformation.mul_vec(v3);
 
         //clear terminal
+
+        // println!("v1: {:?}", v1);
+        // println!("v2: {:?}", v2);
+        // println!("v3: {:?}", v3);
+
+        // println!("fv1: {:?}", fv1);
+        // println!("fv2: {:?}", fv2);
+        // println!("fv3: {:?}", fv3);
+
+        println!(
+            "transformation: {:?}",
+            transformation
+        );
+
         fb.clear();
         fill_triangle(
-            Vector2 { x: fv1.x, y: fv1.y },
-            Vector2 { x: fv2.x, y: fv2.y },
-            Vector2 { x: fv3.x, y: fv3.y },
+            Vector2 {
+                x: fv1.x,
+                y: fv1.y,
+            },
+            Vector2 {
+                x: fv2.x,
+                y: fv2.y,
+            },
+            Vector2 {
+                x: fv3.x,
+                y: fv3.y,
+            },
             &mut fb,
         );
         fb.draw_frame();
-        dt += 1 / 60;
-
-        println!("Camera: {:?}", Camera);
-        println!("PvMatrix: {:?}", PvMatrix);
-        println!("transformation: {:?}", transformation);
-        println!("finalMatrix: {:?}", finalMatrix);
-        
-
-        println!("v1: {:?}", v1);
-        println!("v2: {:?}", v2);
-        println!("v3: {:?}", v3);
-
-        println!("fv1: {:?}", fv1);
-        println!("fv2: {:?}", fv2);
-        println!("fv3: {:?}", fv3);
+        // dt += 1 / 60;
 
         std::thread::sleep(std::time::Duration::from_millis(1000 / fps));
-    
     }
 }
