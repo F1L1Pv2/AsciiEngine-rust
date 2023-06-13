@@ -865,16 +865,16 @@ fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
 
 
 fn main() {
-    // let aspectX = 16;
-    // let aspectY = 9;
-    // let rate = 10;
+    let aspectX = 16;
+    let aspectY = 9;
+    let rate = 10;
     let device_state = DeviceState::new();
 
     let start_time = Instant::now();
 
-    let aspectX = 64;
-    let aspectY = 48;
-    let rate = 1;
+    // let aspectX = 64;
+    // let aspectY = 48;
+    // let rate = 1;
 
     //load model
     let input = BufReader::new(File::open("./monke.obj").unwrap());
@@ -938,7 +938,7 @@ fn main() {
             z: 0.,
         },
         75.,
-        (aspectX * rate) as f32 / 2. / (aspectY * rate) as f32,
+        (aspectX * rate) as f32 / (aspectY * rate) as f32,
         0.1,
         400.,
     );
