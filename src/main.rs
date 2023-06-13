@@ -1,9 +1,12 @@
 //import time
 use device_query::{DeviceQuery, DeviceState, Keycode};
-use std::io::{BufWriter, Write};
+use obj::{load_obj, Obj};
+use std::cmp;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::{BufRead, BufWriter, Write};
 use std::time::{Duration, Instant};
 use std::{thread, time};
-
 
 struct FrameBuffer {
     front_buffer: Vec<u32>,
@@ -12,6 +15,7 @@ struct FrameBuffer {
     height: usize,
 }
 
+#[derive(Copy, Clone)]
 struct Color {
     r: u8,
     g: u8,
@@ -98,53 +102,43 @@ impl FrameBuffer {
 }
 
 fn draw_line(v1: UsizeVector2, v2: UsizeVector2, fb: &mut FrameBuffer) {
-    //draws a line from v1 to v2
-    //uses Bresenham's line algorithm
+    // Draws a line from v1 to v2 using Bresenham's line algorithm
     let mut x1 = v1.x as i32;
     let mut y1 = v1.y as i32;
     let x2 = v2.x as i32;
     let y2 = v2.y as i32;
 
     let dx = (x2 - x1).abs();
-    let dy = -(y2 - y1).abs();
+    let dy = (y2 - y1).abs();
 
-    let mut sx = 1;
-    let mut sy = 1;
+    let sx = if x1 < x2 { 1 } else { -1 };
+    let sy = if y1 < y2 { 1 } else { -1 };
 
-    if x1 > x2 {
-        sx = -1;
-    }
-    if y1 > y2 {
-        sy = -1;
-    }
-
-    let mut err = dx + dy;
+    let mut err = dx - dy;
     let mut e2;
 
-    loop {
-        fb.set_pixel(
-            x1 as usize,
-            y1 as usize,
-            Color {
-                r: 255,
-                g: 255,
-                b: 255,
-            },
-        );
+    let white = Color {
+        r: 255,
+        g: 255,
+        b: 255,
+    };
 
-        if x1 == x2 && y1 == y2 {
-            break;
-        }
+    while x1 != x2 || y1 != y2 {
+        fb.set_pixel(x1 as usize, y1 as usize, white);
+
         e2 = 2 * err;
-        if e2 >= dy {
-            err += dy;
+        if e2 > -dy {
+            err -= dy;
             x1 += sx;
         }
-        if e2 <= dx {
+        if e2 < dx {
             err += dx;
             y1 += sy;
         }
     }
+
+    // Draw the last point
+    fb.set_pixel(x2 as usize, y2 as usize, white);
 }
 
 fn fill_bottom_flat_triangle(
@@ -424,7 +418,6 @@ impl Vector3 {
             z: self.x * other.y - self.y * other.x,
         }
     }
-
 
     fn add(&self, other: Vector3) -> Vector3 {
         Vector3 {
@@ -868,18 +861,48 @@ impl Camera {
     }
 }
 
-
 fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
     let mut f: Vector4;
 
     f = MvMatrix.mul_vec(vertex);
 
+    if f.w == 0. {
+        f.w = 1e-5;
+    }
     f.x = f.x / f.w;
     f.y = f.y / f.w;
     f.z = f.z / f.w;
-    f.w = 1.;
+    // f.w = 1.;
 
     f
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Face {
+    vertices: [Vector4; 3],
+    color: Vector3,
+}
+
+impl Face {
+    fn new(vertices: [Vector4; 3], color: Vector3) -> Face {
+        Face { vertices, color }
+    }
+}
+
+fn drawFaces(faces: &Vec<Face>, transformation: Matrix44, fb: &mut FrameBuffer, Camera: &Camera) {
+    let finalMatrix = Camera.getPvMatrix().mul(transformation);
+    for face in faces {
+        let mut vertices: [Vector4; 3] = face.vertices;
+        for i in 0..3 {
+            vertices[i] = transformVertex(vertices[i], finalMatrix);
+        }
+        fill_triangle(
+            Vector2::new(vertices[0].x, vertices[0].y),
+            Vector2::new(vertices[1].x, vertices[1].y),
+            Vector2::new(vertices[2].x, vertices[2].y),
+            fb,
+        );
+    }
 }
 
 fn main() {
@@ -894,6 +917,56 @@ fn main() {
     // let aspectY = 48;
     // let rate = 1;
 
+    //load model
+    let input = BufReader::new(File::open("./monke.obj").unwrap());
+    let mut model: Obj = load_obj(input).unwrap();
+
+    let mut CubeFaces: Vec<Face> = Vec::new();
+
+    // return;
+
+    for i in 0..model.indices.len() / 3 {
+        let mut face = Face {
+            /*
+                pub struct Vertex {
+                /// Position vector of a vertex.
+                pub position: [f32; 3],
+                /// Normal vertor of a vertex.
+                pub normal: [f32; 3],
+            } */
+            vertices: [
+                Vector4::new(
+                    model.vertices[model.indices[i * 3] as usize].position[0],
+                    model.vertices[model.indices[i * 3] as usize].position[1],
+                    model.vertices[model.indices[i * 3] as usize].position[2],
+                    1.,
+                ),
+                Vector4::new(
+                    model.vertices[model.indices[i * 3 + 1] as usize].position[0],
+                    model.vertices[model.indices[i * 3 + 1] as usize].position[1],
+                    model.vertices[model.indices[i * 3 + 1] as usize].position[2],
+                    1.,
+                ),
+                Vector4::new(
+                    model.vertices[model.indices[i * 3 + 2] as usize].position[0],
+                    model.vertices[model.indices[i * 3 + 2] as usize].position[1],
+                    model.vertices[model.indices[i * 3 + 2] as usize].position[2],
+                    1.,
+                ),
+            ],
+            color: Vector3::new(1., 1., 1.),
+        };
+
+        CubeFaces.push(face);
+    }
+
+    //sort faces by distance to camera far to near
+    CubeFaces.sort_by(|a, b| {
+        let a = a.vertices[0].z + a.vertices[1].z + a.vertices[2].z;
+        let b = b.vertices[0].z + b.vertices[1].z + b.vertices[2].z;
+        b.partial_cmp(&a).unwrap()
+    });
+
     let mut Camera = Camera::new(
         Vector3 {
             x: 0.,
@@ -905,10 +978,10 @@ fn main() {
             y: 0.,
             z: 0.,
         },
-        90.,
+        75.,
         (aspectX * rate) as f32 / 2. / (aspectY * rate) as f32,
-        1e-3,
-        1000.,
+        0.1,
+        400.,
     );
 
     let mut angle = 0.;
@@ -991,7 +1064,16 @@ fn main() {
 
         transformation = Matrix44::identity();
 
-        transformation.translate(0.0, 0.0, 1.5);
+        transformation.translate(0.0, 0.0, -5.);
+
+        transformation.rotate(
+            Vector3 {
+                x: 1.,
+                y: 0.,
+                z: 0.,
+            },
+            (180. as f32 ).to_radians(),
+        );
 
         transformation.rotate(
             Vector3 {
@@ -1004,27 +1086,24 @@ fn main() {
 
         angle += 0.01;
 
-        let finalMatrix = PvMatrix.mul(transformation);
+        // let finalMatrix = PvMatrix.mul(transformation);
 
         //apply transformation
-        let fv1 = transformVertex(v1, finalMatrix);
-        let fv2 = transformVertex(v2, finalMatrix);
-        let fv3 = transformVertex(v3, finalMatrix);
+        // let fv1 = transformVertex(v1, finalMatrix);
+        // let fv2 = transformVertex(v2, finalMatrix);
+        // let fv3 = transformVertex(v3, finalMatrix);
 
         fb.clear();
-        fill_triangle(
-            Vector2 { x: fv1.x, y: fv1.y },
-            Vector2 { x: fv2.x, y: fv2.y },
-            Vector2 { x: fv3.x, y: fv3.y },
-            &mut fb,
-        );
+        // fill_triangle(
+        // Vector2 { x: fv1.x, y: fv1.y },
+        // Vector2 { x: fv2.x, y: fv2.y },
+        // Vector2 { x: fv3.x, y: fv3.y },
+        // &mut fb,
+        // );
+        drawFaces(&CubeFaces, transformation, &mut fb, &Camera);
         fb.draw_frame();
 
-        println!(
-            "Rotation {:?} Position {:?}",
-            Camera.rotation, Camera.position
-        );
-        // dt += 1 / 60;
+        // println!("Model: {}", model.vertices.len());
 
         std::thread::sleep(std::time::Duration::from_millis(1000 / fps));
     }
