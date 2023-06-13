@@ -865,16 +865,16 @@ fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
 
 
 fn main() {
-    let aspectX = 16;
-    let aspectY = 9;
-    let rate = 20;
+    // let aspectX = 16;
+    // let aspectY = 9;
+    // let rate = 10;
     let device_state = DeviceState::new();
 
     let start_time = Instant::now();
 
-    // let aspectX = 64;
-    // let aspectY = 48;
-    // let rate = 1;
+    let aspectX = 64;
+    let aspectY = 48;
+    let rate = 1;
 
     //load model
     let input = BufReader::new(File::open("./monke.obj").unwrap());
@@ -1059,7 +1059,7 @@ fn main() {
         // Vector2 { x: fv3.x, y: fv3.y },
         // &mut fb,
         // );
-        println!("ForwardVector: {:?}", Camera.getForwardVector());
+        // println!("ForwardVector: {:?}", Camera.getForwardVector());
         drawFaces(&CubeFaces, transformation, &mut fb, &Camera);
         fb.draw_frame();
 
