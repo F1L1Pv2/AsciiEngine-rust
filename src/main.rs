@@ -1,505 +1,9 @@
 //import time
+use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::io::{BufWriter, Write};
 use std::time::{Duration, Instant};
 use std::{thread, time};
-use device_query::{DeviceQuery, DeviceState, Keycode};
 
-#[derive(Copy, Clone, Debug)]
-struct Vector2 {
-    x: f32,
-    y: f32,
-}
-
-impl Vector2 {
-    fn new(x: f32, y: f32) -> Vector2 {
-        Vector2 { x, y }
-    }
-
-    fn zero() -> Vector2 {
-        Vector2 { x: 0., y: 0. }
-    }
-
-    fn one() -> Vector2 {
-        Vector2 { x: 1., y: 1. }
-    }
-
-    fn add(&self, other: Vector2) -> Vector2 {
-        Vector2 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-
-    fn sub(&self, other: Vector2) -> Vector2 {
-        Vector2 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
-    }
-
-    fn mul(&self, other: Vector2) -> Vector2 {
-        Vector2 {
-            x: self.x * other.x,
-            y: self.y * other.y,
-        }
-    }
-
-    fn dot(&self, other: Vector2) -> f32 {
-        self.x * other.x + self.y * other.y
-    }
-
-    fn magnitude(&self) -> f32 {
-        (self.x * self.x + self.y * self.y).sqrt()
-    }
-
-    fn normalize(&self) -> Vector2 {
-        let mag = self.magnitude();
-        Vector2 {
-            x: self.x / mag,
-            y: self.y / mag,
-        }
-    }
-
-    fn distance(&self, other: Vector2) -> f32 {
-        let x = (self.x - other.x).abs();
-        let y = (self.y - other.y).abs();
-        (x * x + y * y).sqrt()
-    }
-
-    fn angle(&self, other: Vector2) -> f32 {
-        let dot = self.dot(other);
-        let mag = self.magnitude() * other.magnitude();
-        (dot as f32 / mag).acos()
-    }
-
-    fn lerp(&self, other: Vector2, t: f32) -> Vector2 {
-        Vector2 {
-            x: (self.x as f32 + (other.x - self.x) * t),
-            y: (self.y as f32 + (other.y - self.y) * t),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-struct UsizeVector2 {
-    x: usize,
-    y: usize,
-}
-
-#[derive(Copy, Clone, Debug)]
-struct Vector3 {
-    x: f32,
-    y: f32,
-    z: f32,
-}
-
-impl Vector3 {
-    fn new(x: f32, y: f32, z: f32) -> Vector3 {
-        Vector3 { x, y, z }
-    }
-
-    fn zero() -> Vector3 {
-        Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        }
-    }
-
-    fn one() -> Vector3 {
-        Vector3 {
-            x: 1.,
-            y: 1.,
-            z: 1.,
-        }
-    }
-
-    fn add(&self, other: Vector3) -> Vector3 {
-        Vector3 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-        }
-    }
-
-    fn sub(&self, other: Vector3) -> Vector3 {
-        Vector3 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-        }
-    }
-
-    fn mul(&self, other: Vector3) -> Vector3 {
-        Vector3 {
-            x: self.x * other.x,
-            y: self.y * other.y,
-            z: self.z * other.z,
-        }
-    }
-
-    fn dot(&self, other: Vector3) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z
-    }
-
-    fn magnitude(&self) -> f32 {
-        ((self.x * self.x + self.y * self.y + self.z * self.z) as f32).sqrt()
-    }
-
-    fn normalize(&self) -> Vector3 {
-        let mag = self.magnitude();
-        Vector3 {
-            x: (self.x as f32 / mag),
-            y: (self.y as f32 / mag),
-            z: (self.z as f32 / mag),
-        }
-    }
-
-    fn distance(&self, other: Vector3) -> f32 {
-        let x = (self.x as f32 - other.x as f32).abs();
-        let y = (self.y as f32 - other.y as f32).abs();
-        let z = (self.z as f32 - other.z as f32).abs();
-        (x * x + y * y + z * z).sqrt()
-    }
-
-    fn angle(&self, other: Vector3) -> f32 {
-        let dot = self.dot(other);
-        let mag = self.magnitude() * other.magnitude();
-        (dot as f32 / mag).acos()
-    }
-
-    fn lerp(&self, other: Vector3, t: f32) -> Vector3 {
-        Vector3 {
-            x: (self.x as f32 + (other.x as f32 - self.x as f32) * t),
-            y: (self.y as f32 + (other.y as f32 - self.y as f32) * t),
-            z: (self.z as f32 + (other.z as f32 - self.z as f32) * t),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-struct Vector4 {
-    x: f32,
-    y: f32,
-    z: f32,
-    w: f32,
-}
-
-impl Vector4 {
-    fn new(x: f32, y: f32, z: f32, w: f32) -> Vector4 {
-        Vector4 { x, y, z, w }
-    }
-
-    fn zero() -> Vector4 {
-        Vector4 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-            w: 0.,
-        }
-    }
-
-    fn one() -> Vector4 {
-        Vector4 {
-            x: 1.,
-            y: 1.,
-            z: 1.,
-            w: 1.,
-        }
-    }
-
-    fn add(&self, other: Vector4) -> Vector4 {
-        Vector4 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-            w: self.w + other.w,
-        }
-    }
-
-    fn sub(&self, other: Vector4) -> Vector4 {
-        Vector4 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-            w: self.w - other.w,
-        }
-    }
-
-    fn mul(&self, other: Vector4) -> Vector4 {
-        Vector4 {
-            x: self.x * other.x,
-            y: self.y * other.y,
-            z: self.z * other.z,
-            w: self.w * other.w,
-        }
-    }
-
-    fn dot(&self, other: Vector4) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
-    }
-
-    fn magnitude(&self) -> f32 {
-        (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt()
-    }
-
-    fn normalize(&self) -> Vector4 {
-        let mag = self.magnitude();
-        Vector4 {
-            x: (self.x as f32 / mag),
-            y: (self.y as f32 / mag),
-            z: (self.z as f32 / mag),
-            w: (self.w as f32 / mag),
-        }
-    }
-
-    fn distance(&self, other: Vector4) -> f32 {
-        let x = (self.x as f32 - other.x as f32).abs();
-        let y = (self.y as f32 - other.y as f32).abs();
-        let z = (self.z as f32 - other.z as f32).abs();
-        let w = (self.w as f32 - other.w as f32).abs();
-        (x * x + y * y + z * z + w * w).sqrt()
-    }
-
-    fn angle(&self, other: Vector4) -> f32 {
-        let dot = self.dot(other);
-        let mag = self.magnitude() * other.magnitude();
-        (dot as f32 / mag).acos()
-    }
-
-    fn lerp(&self, other: Vector4, t: f32) -> Vector4 {
-        Vector4 {
-            x: (self.x as f32 + (other.x as f32 - self.x as f32) * t),
-            y: (self.y as f32 + (other.y as f32 - self.y as f32) * t),
-            z: (self.z as f32 + (other.z as f32 - self.z as f32) * t),
-            w: (self.w as f32 + (other.w as f32 - self.w as f32) * t),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-struct Matrix44 {
-    m: [[f32; 4]; 4],
-}
-
-impl Matrix44 {
-    fn new(m: [[f32; 4]; 4]) -> Matrix44 {
-        Matrix44 { m }
-    }
-
-    fn identity() -> Matrix44 {
-        Matrix44 {
-            m: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1., 0.0, 0.0],
-                [0.0, 0.0, 1., 0.0],
-                [0.0, 0.0, 0.0, 1.],
-            ],
-        }
-    }
-
-    fn zero() -> Matrix44 {
-        Matrix44 {
-            m: [[0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4]],
-        }
-    }
-
-    fn add(&self, other: Matrix44) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                m[i][j] = self.m[i][j] + other.m[i][j];
-            }
-        }
-        Matrix44 { m }
-    }
-
-    fn sub(&self, other: Matrix44) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                m[i][j] = self.m[i][j] - other.m[i][j];
-            }
-        }
-        Matrix44 { m }
-    }
-
-    fn mul(&self, other: Matrix44) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                m[i][j] = self.m[i][0] * other.m[0][j]
-                    + self.m[i][1] * other.m[1][j]
-                    + self.m[i][2] * other.m[2][j]
-                    + self.m[i][3] * other.m[3][j];
-            }
-        }
-        Matrix44 { m }
-    }
-
-    fn transpose(&self) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                m[i][j] = self.m[j][i];
-            }
-        }
-        Matrix44 { m }
-    }
-
-    fn dot(&self, other: Matrix44) -> f32 {
-        let mut m = [[0.0; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                m[i][j] = self.m[i][0] * other.m[0][j]
-                    + self.m[i][1] * other.m[1][j]
-                    + self.m[i][2] * other.m[2][j]
-                    + self.m[i][3] * other.m[3][j];
-            }
-        }
-        m[0][0] + m[1][1] + m[2][2] + m[3][3]
-    }
-
-    fn negate(&self) -> Matrix44 {
-        let mut m = [[0.0; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                m[i][j] = -self.m[i][j];
-            }
-        }
-        Matrix44 { m }
-    }
-
-    //multiply a matrix by a vector
-
-    fn mul_vec(&self, other: Vector4) -> Vector4 {
-        let mut v = Vector4::new(0., 0., 0., 0.);
-        v.x = (self.m[0][0] * other.x as f32
-            + self.m[0][1] * other.y as f32
-            + self.m[0][2] * other.z as f32
-            + self.m[0][3] * other.w as f32);
-        v.y = (self.m[1][0] * other.x as f32
-            + self.m[1][1] * other.y as f32
-            + self.m[1][2] * other.z as f32
-            + self.m[1][3] * other.w as f32);
-        v.z = (self.m[2][0] * other.x as f32
-            + self.m[2][1] * other.y as f32
-            + self.m[2][2] * other.z as f32
-            + self.m[2][3] * other.w as f32);
-        v.w = (self.m[3][0] * other.x as f32
-            + self.m[3][1] * other.y as f32
-            + self.m[3][2] * other.z as f32
-            + self.m[3][3] * other.w as f32);
-        v
-    }
-
-    fn translate(&mut self, x: f32, y: f32, z: f32) {
-        let mut m = Matrix44::identity();
-        m.m[0][3] = x;
-        m.m[1][3] = y;
-        m.m[2][3] = z;
-        *self = self.mul(m);
-    }
-
-    fn rotate(&mut self, axis: Vector3, angle: f32) {
-        let mut m = Matrix44::identity();
-
-        m.m[0][0] = angle.cos() + axis.x * axis.x * (1. - angle.cos());
-        m.m[0][1] = axis.x * axis.y * (1. - angle.cos()) - axis.z * angle.sin();
-        m.m[0][2] = axis.x * axis.z * (1. - angle.cos()) + axis.y * angle.sin();
-
-        m.m[1][0] = axis.y * axis.x * (1. - angle.cos()) + axis.z * angle.sin();
-        m.m[1][1] = angle.cos() + axis.y * axis.y * (1. - angle.cos());
-        m.m[1][2] = axis.y * axis.z * (1. - angle.cos()) - axis.x * angle.sin();
-
-        m.m[2][0] = axis.z * axis.x * (1. - angle.cos()) - axis.y * angle.sin();
-        m.m[2][1] = axis.z * axis.y * (1. - angle.cos()) + axis.x * angle.sin();
-        m.m[2][2] = angle.cos() + axis.z * axis.z * (1. - angle.cos());
-
-        *self = self.mul(m);
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-struct Camera {
-    position: Vector3,
-    rotation: Vector3,
-    projMatrix: Matrix44,
-    viewMatrix: Matrix44,
-}
-
-impl Camera {
-    fn new(
-        startPos: Vector3,
-        startRotation: Vector3,
-        fov: f32,
-        aspect: f32,
-        near: f32,
-        far: f32,
-    ) -> Camera {
-        let mut camera = Camera {
-            position: startPos,
-            rotation: Vector3 {
-                x: startRotation.x.to_radians(),
-                y: startRotation.y.to_radians(),
-                z: startRotation.z.to_radians(),
-            },
-            projMatrix: Matrix44::identity(),
-            viewMatrix: Matrix44::identity(),
-        };
-        camera.createProjectionMatrix(fov, aspect, near, far);
-        camera.calculateViewMatrix();
-        camera
-    }
-
-    fn getPosition(&self) -> Vector3 {
-        self.position
-    }
-
-    fn getRotation(&self) -> Vector3 {
-        self.rotation
-    }
-
-    fn calculateViewMatrix(&mut self) {
-        self.viewMatrix = Matrix44::identity();
-        // self.viewMatrix.rotateX(self.rotation.x);
-        // self.viewMatrix.rotateY(self.rotation.y);
-        // self.viewMatrix.rotateZ(self.rotation.z);
-        self.viewMatrix
-            .rotate(Vector3::new(1., 0., 0.), self.rotation.x);
-        self.viewMatrix
-            .rotate(Vector3::new(0., 1., 0.), self.rotation.y);
-        self.viewMatrix
-            .rotate(Vector3::new(0., 0., 1.), self.rotation.z);
-        self.viewMatrix
-            .translate(-self.position.x, -self.position.y, -self.position.z);
-        // .rotateX(self.rotation.x)
-        // .rotateY(self.rotation.y)
-        // .rotateZ(self.rotation.z)
-        // .translate(self.position.x, self.position.y, self.position.z);
-    }
-
-    fn getPvMatrix(&self) -> Matrix44 {
-        self.projMatrix.mul(self.viewMatrix)
-    }
-
-    fn createProjectionMatrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32) {
-        let fov = fov.to_radians();
-        let scale = 1.0 / (fov * 0.5).tan(); // Precompute to avoid duplicate calculation
-        let fovY = scale * aspect;
-        let fovX = scale;
-        let f = far / (far - near);
-        let nf = -(far * near) / (far - near);
-        self.projMatrix = Matrix44 {
-            m: [
-                [fovX, 0.0, 0.0, 0.0],
-                [0.0, fovY, 0.0, 0.0],
-                [0.0, 0.0, f, nf],
-                [0.0, 0.0, 1.0, 0.0],
-            ],
-        };
-    }
-}
 
 struct FrameBuffer {
     front_buffer: Vec<u32>,
@@ -799,6 +303,572 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+struct Vector2 {
+    x: f32,
+    y: f32,
+}
+
+impl Vector2 {
+    fn new(x: f32, y: f32) -> Vector2 {
+        Vector2 { x, y }
+    }
+
+    fn zero() -> Vector2 {
+        Vector2 { x: 0., y: 0. }
+    }
+
+    fn one() -> Vector2 {
+        Vector2 { x: 1., y: 1. }
+    }
+
+    fn cross(&self, other: Vector2) -> f32 {
+        self.x * other.y - self.y * other.x
+    }
+
+    fn add(&self, other: Vector2) -> Vector2 {
+        Vector2 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+
+    fn sub(&self, other: Vector2) -> Vector2 {
+        Vector2 {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
+    }
+
+    fn mul(&self, other: Vector2) -> Vector2 {
+        Vector2 {
+            x: self.x * other.x,
+            y: self.y * other.y,
+        }
+    }
+
+    fn dot(&self, other: Vector2) -> f32 {
+        self.x * other.x + self.y * other.y
+    }
+
+    fn magnitude(&self) -> f32 {
+        (self.x * self.x + self.y * self.y).sqrt()
+    }
+
+    fn normalize(&self) -> Vector2 {
+        let mag = self.magnitude();
+        Vector2 {
+            x: self.x / mag,
+            y: self.y / mag,
+        }
+    }
+
+    fn distance(&self, other: Vector2) -> f32 {
+        let x = (self.x - other.x).abs();
+        let y = (self.y - other.y).abs();
+        (x * x + y * y).sqrt()
+    }
+
+    fn angle(&self, other: Vector2) -> f32 {
+        let dot = self.dot(other);
+        let mag = self.magnitude() * other.magnitude();
+        (dot as f32 / mag).acos()
+    }
+
+    fn lerp(&self, other: Vector2, t: f32) -> Vector2 {
+        Vector2 {
+            x: (self.x as f32 + (other.x - self.x) * t),
+            y: (self.y as f32 + (other.y - self.y) * t),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct UsizeVector2 {
+    x: usize,
+    y: usize,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Vector3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+impl Vector3 {
+    fn new(x: f32, y: f32, z: f32) -> Vector3 {
+        Vector3 { x, y, z }
+    }
+
+    fn zero() -> Vector3 {
+        Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        }
+    }
+
+    fn one() -> Vector3 {
+        Vector3 {
+            x: 1.,
+            y: 1.,
+            z: 1.,
+        }
+    }
+
+    fn cross(&self, other: Vector3) -> Vector3 {
+        Vector3 {
+            x: self.y * other.z - self.z * other.y,
+            y: -(self.x * other.z - self.z * other.x),
+            z: self.x * other.y - self.y * other.x,
+        }
+    }
+
+
+    fn add(&self, other: Vector3) -> Vector3 {
+        Vector3 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+
+    fn mul_scalar(&self, scalar: f32) -> Vector3 {
+        Vector3 {
+            x: self.x * scalar,
+            y: self.y * scalar,
+            z: self.z * scalar,
+        }
+    }
+
+    fn sub(&self, other: Vector3) -> Vector3 {
+        Vector3 {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+
+    fn mul(&self, other: Vector3) -> Vector3 {
+        Vector3 {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+        }
+    }
+
+    fn dot(&self, other: Vector3) -> f32 {
+        self.x * other.x + self.y * other.y + self.z * other.z
+    }
+
+    fn magnitude(&self) -> f32 {
+        ((self.x * self.x + self.y * self.y + self.z * self.z) as f32).sqrt()
+    }
+
+    fn normalize(&self) -> Vector3 {
+        let mag = self.magnitude();
+        Vector3 {
+            x: (self.x as f32 / mag),
+            y: (self.y as f32 / mag),
+            z: (self.z as f32 / mag),
+        }
+    }
+
+    fn distance(&self, other: Vector3) -> f32 {
+        let x = (self.x as f32 - other.x as f32).abs();
+        let y = (self.y as f32 - other.y as f32).abs();
+        let z = (self.z as f32 - other.z as f32).abs();
+        (x * x + y * y + z * z).sqrt()
+    }
+
+    fn angle(&self, other: Vector3) -> f32 {
+        let dot = self.dot(other);
+        let mag = self.magnitude() * other.magnitude();
+        (dot as f32 / mag).acos()
+    }
+
+    fn lerp(&self, other: Vector3, t: f32) -> Vector3 {
+        Vector3 {
+            x: (self.x as f32 + (other.x as f32 - self.x as f32) * t),
+            y: (self.y as f32 + (other.y as f32 - self.y as f32) * t),
+            z: (self.z as f32 + (other.z as f32 - self.z as f32) * t),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Vector4 {
+    x: f32,
+    y: f32,
+    z: f32,
+    w: f32,
+}
+
+impl Vector4 {
+    fn new(x: f32, y: f32, z: f32, w: f32) -> Vector4 {
+        Vector4 { x, y, z, w }
+    }
+
+    fn zero() -> Vector4 {
+        Vector4 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+            w: 0.,
+        }
+    }
+
+    fn cross(&self, other: Vector4) -> Vector4 {
+        Vector4 {
+            x: self.y * other.z - self.z * other.y,
+            y: -(self.x * other.z - self.z * other.x),
+            z: self.x * other.y - self.y * other.x,
+            w: 0.,
+        }
+    }
+
+    fn one() -> Vector4 {
+        Vector4 {
+            x: 1.,
+            y: 1.,
+            z: 1.,
+            w: 1.,
+        }
+    }
+
+    fn add(&self, other: Vector4) -> Vector4 {
+        Vector4 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+            w: self.w + other.w,
+        }
+    }
+
+    fn sub(&self, other: Vector4) -> Vector4 {
+        Vector4 {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+            w: self.w - other.w,
+        }
+    }
+
+    fn mul(&self, other: Vector4) -> Vector4 {
+        Vector4 {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+            w: self.w * other.w,
+        }
+    }
+
+    fn dot(&self, other: Vector4) -> f32 {
+        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
+    }
+
+    fn magnitude(&self) -> f32 {
+        (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt()
+    }
+
+    fn normalize(&self) -> Vector4 {
+        let mag = self.magnitude();
+        Vector4 {
+            x: (self.x as f32 / mag),
+            y: (self.y as f32 / mag),
+            z: (self.z as f32 / mag),
+            w: (self.w as f32 / mag),
+        }
+    }
+
+    fn distance(&self, other: Vector4) -> f32 {
+        let x = (self.x as f32 - other.x as f32).abs();
+        let y = (self.y as f32 - other.y as f32).abs();
+        let z = (self.z as f32 - other.z as f32).abs();
+        let w = (self.w as f32 - other.w as f32).abs();
+        (x * x + y * y + z * z + w * w).sqrt()
+    }
+
+    fn angle(&self, other: Vector4) -> f32 {
+        let dot = self.dot(other);
+        let mag = self.magnitude() * other.magnitude();
+        (dot as f32 / mag).acos()
+    }
+
+    fn lerp(&self, other: Vector4, t: f32) -> Vector4 {
+        Vector4 {
+            x: (self.x as f32 + (other.x as f32 - self.x as f32) * t),
+            y: (self.y as f32 + (other.y as f32 - self.y as f32) * t),
+            z: (self.z as f32 + (other.z as f32 - self.z as f32) * t),
+            w: (self.w as f32 + (other.w as f32 - self.w as f32) * t),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Matrix44 {
+    m: [[f32; 4]; 4],
+}
+
+impl Matrix44 {
+    fn new(m: [[f32; 4]; 4]) -> Matrix44 {
+        Matrix44 { m }
+    }
+
+    fn identity() -> Matrix44 {
+        Matrix44 {
+            m: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1., 0.0, 0.0],
+                [0.0, 0.0, 1., 0.0],
+                [0.0, 0.0, 0.0, 1.],
+            ],
+        }
+    }
+
+    fn zero() -> Matrix44 {
+        Matrix44 {
+            m: [[0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4]],
+        }
+    }
+
+    fn add(&self, other: Matrix44) -> Matrix44 {
+        let mut m = [[0.0; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                m[i][j] = self.m[i][j] + other.m[i][j];
+            }
+        }
+        Matrix44 { m }
+    }
+
+    fn sub(&self, other: Matrix44) -> Matrix44 {
+        let mut m = [[0.0; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                m[i][j] = self.m[i][j] - other.m[i][j];
+            }
+        }
+        Matrix44 { m }
+    }
+
+    fn mul(&self, other: Matrix44) -> Matrix44 {
+        let mut m = [[0.0; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                m[i][j] = self.m[i][0] * other.m[0][j]
+                    + self.m[i][1] * other.m[1][j]
+                    + self.m[i][2] * other.m[2][j]
+                    + self.m[i][3] * other.m[3][j];
+            }
+        }
+        Matrix44 { m }
+    }
+
+    fn mul_vec3(&self, other: Vector3) -> Vector3 {
+        let mut m = [0.0; 4];
+        for i in 0..4 {
+            m[i] = self.m[i][0] * other.x
+                + self.m[i][1] * other.y
+                + self.m[i][2] * other.z
+                + self.m[i][3];
+        }
+        Vector3 {
+            x: m[0],
+            y: m[1],
+            z: m[2],
+        }
+    }
+
+    fn transpose(&self) -> Matrix44 {
+        let mut m = [[0.0; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                m[i][j] = self.m[j][i];
+            }
+        }
+        Matrix44 { m }
+    }
+
+    fn dot(&self, other: Matrix44) -> f32 {
+        let mut m = [[0.0; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                m[i][j] = self.m[i][0] * other.m[0][j]
+                    + self.m[i][1] * other.m[1][j]
+                    + self.m[i][2] * other.m[2][j]
+                    + self.m[i][3] * other.m[3][j];
+            }
+        }
+        m[0][0] + m[1][1] + m[2][2] + m[3][3]
+    }
+
+    fn negate(&self) -> Matrix44 {
+        let mut m = [[0.0; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                m[i][j] = -self.m[i][j];
+            }
+        }
+        Matrix44 { m }
+    }
+
+    //multiply a matrix by a vector
+
+    fn mul_vec(&self, other: Vector4) -> Vector4 {
+        let mut v = Vector4::new(0., 0., 0., 0.);
+        v.x = (self.m[0][0] * other.x as f32
+            + self.m[0][1] * other.y as f32
+            + self.m[0][2] * other.z as f32
+            + self.m[0][3] * other.w as f32);
+        v.y = (self.m[1][0] * other.x as f32
+            + self.m[1][1] * other.y as f32
+            + self.m[1][2] * other.z as f32
+            + self.m[1][3] * other.w as f32);
+        v.z = (self.m[2][0] * other.x as f32
+            + self.m[2][1] * other.y as f32
+            + self.m[2][2] * other.z as f32
+            + self.m[2][3] * other.w as f32);
+        v.w = (self.m[3][0] * other.x as f32
+            + self.m[3][1] * other.y as f32
+            + self.m[3][2] * other.z as f32
+            + self.m[3][3] * other.w as f32);
+        v
+    }
+
+    fn translate(&mut self, x: f32, y: f32, z: f32) {
+        let mut m = Matrix44::identity();
+        m.m[0][3] = x;
+        m.m[1][3] = y;
+        m.m[2][3] = z;
+        *self = self.mul(m);
+    }
+
+    fn rotate(&mut self, axis: Vector3, angle: f32) {
+        let mut m = Matrix44::identity();
+
+        m.m[0][0] = angle.cos() + axis.x * axis.x * (1. - angle.cos());
+        m.m[0][1] = axis.x * axis.y * (1. - angle.cos()) - axis.z * angle.sin();
+        m.m[0][2] = axis.x * axis.z * (1. - angle.cos()) + axis.y * angle.sin();
+
+        m.m[1][0] = axis.y * axis.x * (1. - angle.cos()) + axis.z * angle.sin();
+        m.m[1][1] = angle.cos() + axis.y * axis.y * (1. - angle.cos());
+        m.m[1][2] = axis.y * axis.z * (1. - angle.cos()) - axis.x * angle.sin();
+
+        m.m[2][0] = axis.z * axis.x * (1. - angle.cos()) - axis.y * angle.sin();
+        m.m[2][1] = axis.z * axis.y * (1. - angle.cos()) + axis.x * angle.sin();
+        m.m[2][2] = angle.cos() + axis.z * axis.z * (1. - angle.cos());
+
+        *self = self.mul(m);
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Camera {
+    position: Vector3,
+    rotation: Vector3,
+    projMatrix: Matrix44,
+    viewMatrix: Matrix44,
+}
+
+impl Camera {
+    fn new(
+        startPos: Vector3,
+        startRotation: Vector3,
+        fov: f32,
+        aspect: f32,
+        near: f32,
+        far: f32,
+    ) -> Camera {
+        let mut camera = Camera {
+            position: startPos,
+            rotation: Vector3 {
+                x: startRotation.x.to_radians(),
+                y: startRotation.y.to_radians(),
+                z: startRotation.z.to_radians(),
+            },
+            projMatrix: Matrix44::identity(),
+            viewMatrix: Matrix44::identity(),
+        };
+        camera.createProjectionMatrix(fov, aspect, near, far);
+        camera.calculateViewMatrix();
+        camera
+    }
+
+    fn getPosition(&self) -> Vector3 {
+        self.position
+    }
+
+    fn getRotation(&self) -> Vector3 {
+        self.rotation
+    }
+
+    fn getForwardVector(&self) -> Vector3 {
+        //TODO: implement
+        Vector3::new(0., 0., 0.)
+    }
+
+    fn moveForward(&mut self, distance: f32) {
+        //TODO: implement
+        self.calculateViewMatrix();
+    }
+
+    fn moveRight(&mut self, distance: f32) {
+        //TODO: implement
+        self.calculateViewMatrix();
+    }
+
+    fn moveUp(&mut self, distance: f32) {
+        //TODO: implement
+        self.calculateViewMatrix();
+    }
+
+    fn rotateUp(&mut self, angle: f32) {
+        self.rotation.x += angle;
+        self.calculateViewMatrix();
+    }
+
+    fn rotateRight(&mut self, angle: f32) {
+        self.rotation.y += angle;
+        self.calculateViewMatrix();
+    }
+
+    fn calculateViewMatrix(&mut self) {
+        self.viewMatrix = Matrix44::identity();
+        self.viewMatrix
+            .rotate(Vector3::new(1., 0., 0.), self.rotation.x);
+        self.viewMatrix
+            .rotate(Vector3::new(0., 1., 0.), self.rotation.y);
+        self.viewMatrix
+            .rotate(Vector3::new(0., 0., 1.), self.rotation.z);
+        self.viewMatrix
+            .translate(-self.position.x, -self.position.y, -self.position.z);
+    }
+
+    fn getPvMatrix(&self) -> Matrix44 {
+        self.projMatrix.mul(self.viewMatrix)
+    }
+
+    fn createProjectionMatrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32) {
+        let fov = fov.to_radians();
+        let scale = 1.0 / (fov * 0.5).tan(); // Precompute to avoid duplicate calculation
+        let fovY = scale * aspect;
+        let fovX = scale;
+        let f = far / (far - near);
+        let nf = -(far * near) / (far - near);
+        self.projMatrix = Matrix44 {
+            m: [
+                [fovX, 0.0, 0.0, 0.0],
+                [0.0, fovY, 0.0, 0.0],
+                [0.0, 0.0, f, nf],
+                [0.0, 0.0, 1.0, 0.0],
+            ],
+        };
+    }
+}
+
+
 fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
     let mut f: Vector4;
 
@@ -815,7 +885,8 @@ fn transformVertex(vertex: Vector4, MvMatrix: Matrix44) -> Vector4 {
 fn main() {
     let aspectX = 16;
     let aspectY = 9;
-    let rate = 10;
+    let rate = 20;
+    let device_state = DeviceState::new();
 
     let start_time = Instant::now();
 
@@ -878,14 +949,47 @@ fn main() {
     };
 
     loop {
+        let keys: Vec<Keycode> = device_state.get_keys();
+        for key in keys.iter() {
+            match key {
+                Keycode::W => {
+                    Camera.moveForward(0.1);
+                }
+                Keycode::S => {
+                    Camera.moveForward(-0.1);
+                }
+                Keycode::A => {
+                    Camera.moveRight(-0.1);
+                }
+                Keycode::D => {
+                    Camera.moveRight(0.1);
+                }
+                Keycode::Q => {
+                    Camera.moveUp(0.1);
+                }
+                Keycode::E => {
+                    Camera.moveUp(-0.1);
+                }
+                Keycode::Up => {
+                    Camera.rotateUp(0.01);
+                }
+                Keycode::Down => {
+                    Camera.rotateUp(-0.01);
+                }
+                Keycode::Left => {
+                    Camera.rotateRight(-0.01);
+                }
+                Keycode::Right => {
+                    Camera.rotateRight(0.01);
+                }
+                _ => {}
+            }
+        }
+
         Camera.calculateViewMatrix();
         let PvMatrix = Camera.getPvMatrix();
 
         transformation = Matrix44::identity();
-
-        // transformation.translate(0.0, 0., 1.0);
-
-        // transformation.translate(0.0, 0., -0.01);
 
         transformation.translate(0.0, 0.0, 1.5);
 
@@ -915,6 +1019,11 @@ fn main() {
             &mut fb,
         );
         fb.draw_frame();
+
+        println!(
+            "Rotation {:?} Position {:?}",
+            Camera.rotation, Camera.position
+        );
         // dt += 1 / 60;
 
         std::thread::sleep(std::time::Duration::from_millis(1000 / fps));
