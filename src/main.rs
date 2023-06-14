@@ -214,12 +214,13 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
 #[derive(Copy, Clone, Debug)]
 struct Face {
     vertices: [Vector4; 3],
+    transformation: Matrix44,
 }
 
-fn draw_faces(faces: &Vec<Face>, transformation: Matrix44, fb: &mut FrameBuffer, camera: &Camera) {
-    let final_matrix = camera.get_pv_matrix().mul(transformation);
+fn draw_faces(faces: &Vec<Face>, fb: &mut FrameBuffer, camera: &Camera) {
     let mut brok = false;
     for face in faces {
+        let final_matrix = camera.get_pv_matrix().mul(face.transformation);
         let mut vertices: [Vector4; 3] = face.vertices;
         for vertex in vertices.iter_mut() {
             *vertex = transform_vertex(*vertex, final_matrix);
@@ -547,6 +548,46 @@ fn transform_vertex(vertex: Vector4, mv_matrix: Matrix44) -> Vector4 {
     f
 }
 
+fn get_faces(input: BufReader<File>) -> Vec<Face> {
+    let model: Obj = load_obj(input).unwrap();
+    let mut faces: Vec<Face> = Vec::new();
+
+    for i in 0..model.indices.len() / 3 {
+        let face = Face {
+            vertices: [
+                Vector4::new(
+                    model.vertices[model.indices[i * 3] as usize].position[0],
+                    model.vertices[model.indices[i * 3] as usize].position[1],
+                    model.vertices[model.indices[i * 3] as usize].position[2],
+                    1.,
+                ),
+                Vector4::new(
+                    model.vertices[model.indices[i * 3 + 1] as usize].position[0],
+                    model.vertices[model.indices[i * 3 + 1] as usize].position[1],
+                    model.vertices[model.indices[i * 3 + 1] as usize].position[2],
+                    1.,
+                ),
+                Vector4::new(
+                    model.vertices[model.indices[i * 3 + 2] as usize].position[0],
+                    model.vertices[model.indices[i * 3 + 2] as usize].position[1],
+                    model.vertices[model.indices[i * 3 + 2] as usize].position[2],
+                    1.,
+                ),
+            ],
+            transformation: Matrix44::identity(),
+        };
+
+        faces.push(face);
+    }
+
+    faces.sort_by(|a, b| {
+        let a = a.vertices[0].z + a.vertices[1].z + a.vertices[2].z;
+        let b = b.vertices[0].z + b.vertices[1].z + b.vertices[2].z;
+        b.partial_cmp(&a).unwrap()
+    });
+
+    faces
+}
 fn main() {
     //get terminal size
     let terminal_size = termion::terminal_size().unwrap();
@@ -570,52 +611,11 @@ fn main() {
 
     //load model
     let input = BufReader::new(File::open("./monke.obj").unwrap());
-    let model: Obj = load_obj(input).unwrap();
+    
+    let monke_faces = get_faces(input);
 
-    let mut monke_faces: Vec<Face> = Vec::new();
-
-    // return;
-
-    for i in 0..model.indices.len() / 3 {
-        let face = Face {
-            /*
-                pub struct Vertex {
-                /// Position vector of a vertex.
-                pub position: [f32; 3],
-                /// Normal vertor of a vertex.
-                pub normal: [f32; 3],
-            } */
-            vertices: [
-                Vector4::new(
-                    model.vertices[model.indices[i * 3] as usize].position[0],
-                    model.vertices[model.indices[i * 3] as usize].position[1],
-                    model.vertices[model.indices[i * 3] as usize].position[2],
-                    1.,
-                ),
-                Vector4::new(
-                    model.vertices[model.indices[i * 3 + 1] as usize].position[0],
-                    model.vertices[model.indices[i * 3 + 1] as usize].position[1],
-                    model.vertices[model.indices[i * 3 + 1] as usize].position[2],
-                    1.,
-                ),
-                Vector4::new(
-                    model.vertices[model.indices[i * 3 + 2] as usize].position[0],
-                    model.vertices[model.indices[i * 3 + 2] as usize].position[1],
-                    model.vertices[model.indices[i * 3 + 2] as usize].position[2],
-                    1.,
-                ),
-            ],
-        };
-
-        monke_faces.push(face);
-    }
-
-    //sort faces by distance to camera far to near
-    monke_faces.sort_by(|a, b| {
-        let a = a.vertices[0].z + a.vertices[1].z + a.vertices[2].z;
-        let b = b.vertices[0].z + b.vertices[1].z + b.vertices[2].z;
-        b.partial_cmp(&a).unwrap()
-    });
+    let input = BufReader::new(File::open("./cube.obj").unwrap());
+    let cube_faces = get_faces(input);
 
     let mut camera = Camera::new(
         Vector3 {
@@ -683,7 +683,11 @@ fn main() {
 
         let mut monke_transformation = Matrix44::identity();
 
-        monke_transformation.translate(0.0, 0.0, -2.);
+        let mut cube_transformation = Matrix44::identity();
+
+        monke_transformation.translate(0.0, 0.0, -4.);
+
+        cube_transformation.translate(0.0, 0.0, 4.);
 
         monke_transformation.rotate(
             Vector3 {
@@ -705,21 +709,8 @@ fn main() {
 
         // angle += 0.01;
 
-        //add monke to draw faces
-        draw_list_faces.append(&mut monke_faces.clone());
-
-        //TODO: remove faces that are not in front of the camera
-
-        //remove faces that are not in frustum
-
-        draw_list_faces.sort_by(|a, b| {
-            let a = a.vertices[0].z + a.vertices[1].z + a.vertices[2].z;
-            let b = b.vertices[0].z + b.vertices[1].z + b.vertices[2].z;
-            b.partial_cmp(&a).unwrap()
-        });
-
-        draw_list_faces = draw_list_faces
-            .into_iter()
+        let filtered_monke_faces =  monke_faces
+            .iter()
             .filter(|face| {
                 let mut in_frustum = true;
                 for vertex in &face.vertices {
@@ -733,12 +724,71 @@ fn main() {
                 }
                 in_frustum
             })
-            .collect();
+
+            //set transformation matrix
+            .map(|face| {
+                let mut face = face.clone();
+                face.transformation = monke_transformation;
+                face
+            })
+
+            .collect::<Vec<Face>>();
+
+        let filtered_cube_faces =  cube_faces
+            .iter()
+            .filter(|face| {
+                let mut in_frustum = true;
+                for vertex in &face.vertices {
+                    let mut v = vertex.clone();
+                    v.w = 1.;
+                    v = cube_transformation.mul_vec(v);
+                    v = camera.view_matrix.mul_vec(v);
+                    if v.z > v.w {
+                        in_frustum = false;
+                    }
+                }
+                in_frustum
+            })
+
+            //set transformation matrix
+
+            .map(|face| {
+                let mut face = face.clone();
+                face.transformation = cube_transformation;
+                face
+            })
+
+            .collect::<Vec<Face>>();
+
+        //add monke to draw faces
+        draw_list_faces.append(&mut filtered_monke_faces.clone());
+        draw_list_faces.append(&mut filtered_cube_faces.clone());
+
+        //TODO: remove faces that are not in front of the camera
+
+        //remove faces that are not in frustum
+
+        // draw_list_faces = draw_list_faces
+        //     .into_iter()
+        //     .filter(|face| {
+        //         let mut in_frustum = true;
+        //         for vertex in &face.vertices {
+        //             let mut v = vertex.clone();
+        //             v.w = 1.;
+        //             v = monke_transformation.mul_vec(v);
+        //             v = camera.view_matrix.mul_vec(v);
+        //             if v.z > v.w {
+        //                 in_frustum = false;
+        //             }
+        //         }
+        //         in_frustum
+        //     })
+        //     .collect();
 
 
 
         fb.clear();
-        draw_faces(&draw_list_faces, monke_transformation, &mut fb, &camera);
+        draw_faces(&draw_list_faces, &mut fb, &camera);
         fb.draw_frame();
 
         std::thread::sleep(std::time::Duration::from_millis(1000 / fps));
