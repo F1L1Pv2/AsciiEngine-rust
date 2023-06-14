@@ -1,4 +1,3 @@
-//import time
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use obj::{load_obj, Obj};
 use std::fs::File;
@@ -224,17 +223,11 @@ fn draw_faces(faces: &Vec<Face>, fb: &mut FrameBuffer, camera: &Camera) {
         let mut vertices: [Vector4; 3] = face.vertices;
         for vertex in vertices.iter_mut() {
             *vertex = transform_vertex(*vertex, final_matrix);
-            if (vertex.x < -1.
-                || vertex.x > 1.
-                || vertex.y < -1.
-                || vertex.y > 1.)
-            {
-
+            if (vertex.x < -1. || vertex.x > 1. || vertex.y < -1. || vertex.y > 1.) {
                 //clamp
 
                 // vertex.x = vertex.x.max(-1.).min(1.);
                 // vertex.y = vertex.y.max(-1.).min(1.);
-
 
                 brok = true;
                 break;
@@ -250,7 +243,6 @@ fn draw_faces(faces: &Vec<Face>, fb: &mut FrameBuffer, camera: &Camera) {
         }
     }
 }
-
 
 #[derive(Copy, Clone, Debug)]
 struct Vector2 {
@@ -619,7 +611,7 @@ fn main() {
 
     //load model
     let input = BufReader::new(File::open("./monke.obj").unwrap());
-    
+
     let monke_faces = get_faces(input);
 
     let input = BufReader::new(File::open("./cube.obj").unwrap());
@@ -717,7 +709,7 @@ fn main() {
 
         // angle += 0.01;
 
-        let filtered_monke_faces =  monke_faces
+        let filtered_monke_faces = monke_faces
             .iter()
             .filter(|face| {
                 let mut in_frustum = true;
@@ -732,17 +724,15 @@ fn main() {
                 }
                 in_frustum
             })
-
             //set transformation matrix
             .map(|face| {
                 let mut face = face.clone();
                 face.transformation = monke_transformation;
                 face
             })
-
             .collect::<Vec<Face>>();
 
-        let filtered_cube_faces =  cube_faces
+        let filtered_cube_faces = cube_faces
             .iter()
             .filter(|face| {
                 let mut in_frustum = true;
@@ -757,15 +747,12 @@ fn main() {
                 }
                 in_frustum
             })
-
             //set transformation matrix
-
             .map(|face| {
                 let mut face = face.clone();
                 face.transformation = cube_transformation;
                 face
             })
-
             .collect::<Vec<Face>>();
 
         //add monke to draw faces
@@ -792,8 +779,6 @@ fn main() {
         //         in_frustum
         //     })
         //     .collect();
-
-
 
         fb.clear();
         draw_faces(&draw_list_faces, &mut fb, &camera);
