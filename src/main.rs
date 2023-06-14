@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::{BufWriter, Write};
 use std::time::Instant;
+use termion;
 
 struct FrameBuffer {
     front_buffer: Vec<u32>,
@@ -498,9 +499,19 @@ fn transform_vertex(vertex: Vector4, mv_matrix: Matrix44) -> Vector4 {
 }
 
 fn main() {
-    let aspect_x = 16;
-    let aspect_y = 9;
-    let rate = 10;
+
+    //get terminal size
+    let terminal_size = termion::terminal_size().unwrap();
+    let width = terminal_size.0 as usize;
+    let height = terminal_size.1 as usize;
+
+    let aspect_x = width/2;
+    let aspect_y = height;
+    let rate = 1;
+
+    // let aspect_x = 16;
+    // let aspect_y = 9;
+    // let rate = 10;
     let device_state = DeviceState::new();
 
     let _start_time = Instant::now();
