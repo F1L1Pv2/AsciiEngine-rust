@@ -211,6 +211,7 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 struct Face {
     vertices: [Vector4; 3],
 }
@@ -421,7 +422,7 @@ impl Camera {
         self.position.x += forward.x * distance;
         self.position.y += forward.y * distance;
         self.position.z += forward.z * distance;
-        self.calculate_view_matrix();
+        // self.calculate_view_matrix();
     }
 
     fn move_right(&mut self, distance: f32) {
@@ -430,22 +431,22 @@ impl Camera {
         self.position.x -= right.x * distance;
         self.position.y -= right.y * distance;
         self.position.z -= right.z * distance;
-        self.calculate_view_matrix();
+        // self.calculate_view_matrix();
     }
 
     fn move_up(&mut self, distance: f32) {
         self.position.y += distance;
-        self.calculate_view_matrix();
+        // self.calculate_view_matrix();
     }
 
     fn rotate_up(&mut self, angle: f32) {
         self.rotation.x += angle;
-        self.calculate_view_matrix();
+        // self.calculate_view_matrix();
     }
 
     fn rotate_right(&mut self, angle: f32) {
         self.rotation.y -= angle;
-        self.calculate_view_matrix();
+        // self.calculate_view_matrix();
     }
 
     fn calculate_view_matrix(&mut self) {
@@ -524,7 +525,7 @@ fn main() {
     let input = BufReader::new(File::open("./monke.obj").unwrap());
     let model: Obj = load_obj(input).unwrap();
 
-    let mut cube_faces: Vec<Face> = Vec::new();
+    let mut monke_faces: Vec<Face> = Vec::new();
 
     // return;
 
@@ -559,11 +560,11 @@ fn main() {
             ],
         };
 
-        cube_faces.push(face);
+        monke_faces.push(face);
     }
 
     //sort faces by distance to camera far to near
-    cube_faces.sort_by(|a, b| {
+    monke_faces.sort_by(|a, b| {
         let a = a.vertices[0].z + a.vertices[1].z + a.vertices[2].z;
         let b = b.vertices[0].z + b.vertices[1].z + b.vertices[2].z;
         b.partial_cmp(&a).unwrap()
@@ -586,39 +587,15 @@ fn main() {
         400.,
     );
 
-    let angle = 0.;
-
-    let mut transformation: Matrix44;
+    let mut angle = 0.;
 
     let mut fb = FrameBuffer::new(aspect_x * rate, aspect_y * rate, Color { r: 0, g: 0, b: 0 });
     let fps = 64;
 
-    //draw triangle
-
-    let _dt = 0;
-
-    let _v1 = Vector4 {
-        x: 0.,
-        y: -1.,
-        z: 0.,
-        w: 1.,
-    };
-
-    let _v2 = Vector4 {
-        x: -0.5,
-        y: 1.,
-        z: 0.,
-        w: 1.,
-    };
-
-    let _v3 = Vector4 {
-        x: 0.5,
-        y: 1.,
-        z: 0.,
-        w: 1.,
-    };
-
     loop {
+
+
+
         let keys: Vec<Keycode> = device_state.get_keys();
         for key in &keys {
             match key {
@@ -657,13 +634,14 @@ fn main() {
         }
 
         camera.calculate_view_matrix();
-        let _pv_matrix = camera.get_pv_matrix();
 
-        transformation = Matrix44::identity();
+        let mut draw_list_faces: Vec<Face> = Vec::new();
 
-        transformation.translate(0.0, 0.0, -5.);
+        let mut monke_transformation = Matrix44::identity();
 
-        transformation.rotate(
+        monke_transformation.translate(0.0, 0.0, -5.);
+
+        monke_transformation.rotate(
             Vector3 {
                 x: 1.,
                 y: 0.,
@@ -672,7 +650,7 @@ fn main() {
             180_f32.to_radians(),
         );
 
-        transformation.rotate(
+        monke_transformation.rotate(
             Vector3 {
                 x: 0.,
                 y: 1.,
@@ -681,27 +659,18 @@ fn main() {
             angle,
         );
 
-        // angle += 0.01;
+        angle += 0.01;
 
-        // let finalMatrix = PvMatrix.mul(transformation);
+        //add monke to draw faces
+        draw_list_faces.append(&mut monke_faces.clone());
 
-        //apply transformation
-        // let fv1 = transformVertex(v1, finalMatrix);
-        // let fv2 = transformVertex(v2, finalMatrix);
-        // let fv3 = transformVertex(v3, finalMatrix);
+
+        //TODO: remove faces that are not in front of the camera
+
 
         fb.clear();
-        // fill_triangle(
-        // Vector2 { x: fv1.x, y: fv1.y },
-        // Vector2 { x: fv2.x, y: fv2.y },
-        // Vector2 { x: fv3.x, y: fv3.y },
-        // &mut fb,
-        // );
-        // println!("ForwardVector: {:?}", Camera.getForwardVector());
-        draw_faces(&cube_faces, transformation, &mut fb, &camera);
+        draw_faces(&draw_list_faces, monke_transformation, &mut fb, &camera);
         fb.draw_frame();
-
-        // println!("Model: {}", model.vertices.len());
 
         std::thread::sleep(std::time::Duration::from_millis(1000 / fps));
     }
