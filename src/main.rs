@@ -229,6 +229,13 @@ fn draw_faces(faces: &Vec<Face>, fb: &mut FrameBuffer, camera: &Camera) {
                 || vertex.y < -1.
                 || vertex.y > 1.)
             {
+
+                //clamp
+
+                // vertex.x = vertex.x.max(-1.).min(1.);
+                // vertex.y = vertex.y.max(-1.).min(1.);
+
+
                 brok = true;
                 break;
             }
@@ -243,6 +250,7 @@ fn draw_faces(faces: &Vec<Face>, fb: &mut FrameBuffer, camera: &Camera) {
         }
     }
 }
+
 
 #[derive(Copy, Clone, Debug)]
 struct Vector2 {
@@ -628,7 +636,7 @@ fn main() {
             y: 0.,
             z: 0.,
         },
-        90.,
+        75.,
         (aspect_x * rate) as f32 / (aspect_y * rate) as f32,
         1.,
         1000.,
