@@ -147,20 +147,20 @@ fn fill_triangle(vv1: Vector2, vv2: Vector2, vv3: Vector2, fb: &mut FrameBuffer)
 
     let mut v1: UsizeVector2 = UsizeVector2 {
         x: ((vv1.x + 1.) * hwid) as usize,
-        // y: ((vv1.y + 1.) * hhei) as usize,
-        y: ((-vv1.y + 1.) * hhei) as usize,
+        y: ((vv1.y + 1.) * hhei) as usize,
+        // y: ((-vv1.y + 1.) * hhei) as usize,
     };
 
     let mut v2: UsizeVector2 = UsizeVector2 {
         x: ((vv2.x + 1.) * hwid) as usize,
-        // y: ((vv2.y + 1.) * hhei) as usize,
-        y: ((-vv2.y + 1.) * hhei) as usize,
+        y: ((vv2.y + 1.) * hhei) as usize,
+        // y: ((-vv2.y + 1.) * hhei) as usize,
     };
 
     let mut v3: UsizeVector2 = UsizeVector2 {
         x: ((vv3.x + 1.) * hwid) as usize,
-        // y: ((vv3.y + 1.) * hhei) as usize,
-        y: ((-vv3.y + 1.) * hhei) as usize,
+        y: ((vv3.y + 1.) * hhei) as usize,
+        // y: ((-vv3.y + 1.) * hhei) as usize,
     };
 
     // Sort the vertices by y value
@@ -218,17 +218,28 @@ struct Face {
 
 fn draw_faces(faces: &Vec<Face>, transformation: Matrix44, fb: &mut FrameBuffer, camera: &Camera) {
     let final_matrix = camera.get_pv_matrix().mul(transformation);
+    let mut brok = false;
     for face in faces {
         let mut vertices: [Vector4; 3] = face.vertices;
         for vertex in vertices.iter_mut() {
             *vertex = transform_vertex(*vertex, final_matrix);
+            if (vertex.x < -1.
+                || vertex.x > 1.
+                || vertex.y < -1.
+                || vertex.y > 1.)
+            {
+                brok = true;
+                break;
+            }
         }
-        fill_triangle(
-            Vector2::new(vertices[0].x, vertices[0].y),
-            Vector2::new(vertices[1].x, vertices[1].y),
-            Vector2::new(vertices[2].x, vertices[2].y),
-            fb,
-        );
+        if !brok {
+            fill_triangle(
+                Vector2::new(vertices[0].x, vertices[0].y),
+                Vector2::new(vertices[1].x, vertices[1].y),
+                Vector2::new(vertices[2].x, vertices[2].y),
+                fb,
+            );
+        }
     }
 }
 
@@ -428,9 +439,9 @@ impl Camera {
     fn move_right(&mut self, distance: f32) {
         let forward = self.get_forward_vector();
         let right = Vector3::new(-forward.z, 0., forward.x).normalize();
-        self.position.x -= right.x * distance;
-        self.position.y -= right.y * distance;
-        self.position.z -= right.z * distance;
+        self.position.x += right.x * distance;
+        self.position.y += right.y * distance;
+        self.position.z += right.z * distance;
         // self.calculate_view_matrix();
     }
 
@@ -445,7 +456,7 @@ impl Camera {
     }
 
     fn rotate_right(&mut self, angle: f32) {
-        self.rotation.y -= angle;
+        self.rotation.y += angle;
         // self.calculate_view_matrix();
     }
 
@@ -465,21 +476,60 @@ impl Camera {
         self.proj_matrix.mul(self.view_matrix)
     }
 
+    // fn create_projection_matrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32) {
+    //     let fov = fov.to_radians();
+    //     let scale = 1.0 / (fov * 0.5).tan(); // Precompute to avoid duplicate calculation
+    //     let fov_y = scale * aspect;
+    //     let fov_x = scale;
+    //     let f = far / (far - near);
+    //     let nf = -(far * near) / (far - near);
+    //     self.proj_matrix = Matrix44 {
+    //         m: [
+    //             [fov_x, 0.0, 0.0, 0.0],
+    //             [0.0, fov_y, 0.0, 0.0],
+    //             [0.0, 0.0, f, nf],
+    //             [0.0, 0.0, 1.0, 0.0],
+    //         ],
+    //     };
+    // }
+
+    // fn create_projection_matrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32) {
+    //     let fov = fov.to_radians();
+    //     let scale = 1.0 / (fov * 0.5).tan(); // Precompute to avoid duplicate calculation
+    //     let fov_y = scale * aspect;
+    //     let fov_x = scale;
+    //     let f = far / (far - near);
+    //     let nf = -(far * near) / (far - near);
+    //     self.proj_matrix = Matrix44 {
+    //         m: [
+    //             [fov_x, 0.0, 0.0, 0.0],
+    //             [0.0, fov_y, 0.0, 0.0],
+    //             [0.0, 0.0, f, 1.0],  // Changed this line
+    //             [0.0, 0.0, nf, 0.0], // Changed this line
+    //         ],
+    //     };
+    // }
+
     fn create_projection_matrix(&mut self, fov: f32, aspect: f32, near: f32, far: f32) {
         let fov = fov.to_radians();
-        let scale = 1.0 / (fov * 0.5).tan(); // Precompute to avoid duplicate calculation
-        let fov_y = scale * aspect;
-        let fov_x = scale;
-        let f = far / (far - near);
-        let nf = -(far * near) / (far - near);
+        // self.proj_matrix = Matrix44::identity();
+        let scale = 1. / (fov / 2.).tan();
+
+        // self.proj_matrix.m[0][0] = scale*aspect;
+        // self.proj_matrix.m[1][1] = scale;
+        // self.proj_matrix.m[2][2] = -far / (far-near);
+        // self.proj_matrix.m[3][2] = -far * near / (far-near);
+        // self.proj_matrix.m[2][3] = -1.;
+        // self.proj_matrix.m[3][3] = 0.;
+
         self.proj_matrix = Matrix44 {
             m: [
-                [fov_x, 0.0, 0.0, 0.0],
-                [0.0, fov_y, 0.0, 0.0],
-                [0.0, 0.0, f, nf],
-                [0.0, 0.0, 1.0, 0.0],
+                [scale, 0.0, 0.0, 0.0],
+                [0.0, scale * aspect, 0.0, 0.0],
+                [0.0, 0.0, -far / (far - near), -1.0],
+                [0.0, 0.0, -far * near / (far - near), 0.0],
             ],
-        };
+        }
     }
 }
 
@@ -488,25 +538,22 @@ fn transform_vertex(vertex: Vector4, mv_matrix: Matrix44) -> Vector4 {
 
     f = mv_matrix.mul_vec(vertex);
 
-    if f.w == 0. {
-        f.w = 1e-5;
+    if (f.w != 1.) {
+        f.x /= f.w;
+        f.y /= f.w;
+        f.z /= f.w;
+        // f.w = 1.;
     }
-    f.x /= f.w;
-    f.y /= f.w;
-    f.z /= f.w;
-    // f.w = 1.;
-
     f
 }
 
 fn main() {
-
     //get terminal size
     let terminal_size = termion::terminal_size().unwrap();
     let width = terminal_size.0 as usize;
     let height = terminal_size.1 as usize;
 
-    let aspect_x = width/2;
+    let aspect_x = width / 2;
     let aspect_y = height;
     let rate = 1;
 
@@ -581,10 +628,10 @@ fn main() {
             y: 0.,
             z: 0.,
         },
-        75.,
+        90.,
         (aspect_x * rate) as f32 / (aspect_y * rate) as f32,
-        0.1,
-        400.,
+        1.,
+        1000.,
     );
 
     let mut angle = 0.;
@@ -593,9 +640,6 @@ fn main() {
     let fps = 64;
 
     loop {
-
-
-
         let keys: Vec<Keycode> = device_state.get_keys();
         for key in &keys {
             match key {
@@ -618,16 +662,16 @@ fn main() {
                     camera.move_up(-0.1);
                 }
                 Keycode::I => {
-                    camera.rotate_up(0.01);
+                    camera.rotate_up(0.05);
                 }
                 Keycode::K => {
-                    camera.rotate_up(-0.01);
+                    camera.rotate_up(-0.05);
                 }
                 Keycode::J => {
-                    camera.rotate_right(-0.01);
+                    camera.rotate_right(-0.05);
                 }
                 Keycode::L => {
-                    camera.rotate_right(0.01);
+                    camera.rotate_right(0.05);
                 }
                 _ => {}
             }
@@ -639,7 +683,7 @@ fn main() {
 
         let mut monke_transformation = Matrix44::identity();
 
-        monke_transformation.translate(0.0, 0.0, -5.);
+        monke_transformation.translate(0.0, 0.0, -2.);
 
         monke_transformation.rotate(
             Vector3 {
@@ -659,13 +703,38 @@ fn main() {
             angle,
         );
 
-        angle += 0.01;
+        // angle += 0.01;
 
         //add monke to draw faces
         draw_list_faces.append(&mut monke_faces.clone());
 
-
         //TODO: remove faces that are not in front of the camera
+
+        //remove faces that are not in frustum
+
+        draw_list_faces.sort_by(|a, b| {
+            let a = a.vertices[0].z + a.vertices[1].z + a.vertices[2].z;
+            let b = b.vertices[0].z + b.vertices[1].z + b.vertices[2].z;
+            b.partial_cmp(&a).unwrap()
+        });
+
+        draw_list_faces = draw_list_faces
+            .into_iter()
+            .filter(|face| {
+                let mut in_frustum = true;
+                for vertex in &face.vertices {
+                    let mut v = vertex.clone();
+                    v.w = 1.;
+                    v = monke_transformation.mul_vec(v);
+                    v = camera.view_matrix.mul_vec(v);
+                    if v.z > v.w {
+                        in_frustum = false;
+                    }
+                }
+                in_frustum
+            })
+            .collect();
+
 
 
         fb.clear();
