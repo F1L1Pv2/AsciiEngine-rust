@@ -440,7 +440,7 @@ impl Camera {
     fn move_forward(&mut self, distance: f32) {
         let forward = self.get_forward_vector();
         self.position.x += forward.x * distance;
-        self.position.y += forward.y * distance;
+        // self.position.y += forward.y * distance;
         self.position.z += forward.z * distance;
         // self.calculate_view_matrix();
     }
